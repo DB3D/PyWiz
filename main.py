@@ -1,10 +1,54 @@
 
 import os
+import sys
 import tkinter as tk
 from tkinter import ttk, filedialog
+from PIL import Image, ImageTk
 
 APP_TITLE = "PyWiz Installer"
-APP_SIZE = "720x520"
+APP_SIZE = "720x880"  # Increased height to accommodate 700px header images + content
+
+# Get assets directory path (works for both development and bundled exe)
+def get_assets_dir():
+    """Get the assets directory, handling both development and bundled execution"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except AttributeError:
+        # Running in development
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, 'assets')
+
+ASSETS_DIR = get_assets_dir()
+ICON_PATH = os.path.join(ASSETS_DIR, 'app.ico')
+
+# Cache for loaded images to avoid reloading
+image_cache = {}
+
+def load_header_image(page_number):
+    """Load header image for the specified page number"""
+    image_key = f"page{page_number}"
+    if image_key in image_cache:
+        return image_cache[image_key]
+
+    image_path = os.path.join(ASSETS_DIR, f'header_{image_key}.jpg')
+    if os.path.exists(image_path):
+        try:
+            # Load and resize image to fit window width (720px) while maintaining aspect ratio
+            image = Image.open(image_path)
+            # Calculate new height to maintain aspect ratio for 720px width
+            aspect_ratio = image.height / image.width
+            new_height = int(720 * aspect_ratio)
+            image = image.resize((720, new_height), Image.LANCZOS)
+            photo = ImageTk.PhotoImage(image)
+            image_cache[image_key] = photo
+            return photo
+        except Exception as e:
+            print(f"Warning: Could not load header image for {image_key}: {e}")
+            return None
+    else:
+        print(f"Warning: Header image not found: {image_path}")
+        return None
 
 class Wizard(tk.Tk):
     def __init__(self):
@@ -13,13 +57,24 @@ class Wizard(tk.Tk):
         self.geometry(APP_SIZE)
         self.resizable(False, False)
 
+        # Set window icon if available
+        print(f"Looking for icon at: {ICON_PATH}")
+        print(f"Icon exists: {os.path.exists(ICON_PATH)}")
+        if os.path.exists(ICON_PATH):
+            try:
+                self.iconbitmap(ICON_PATH)
+                print("Icon set successfully")
+            except Exception as e:
+                print(f"Warning: Could not set window icon: {e}")
+        else:
+            print("Icon file not found")
+
         # Shared config state
         self.state = {
+            "license1_scrolled_to_end": False,
             "license1_accepted": False,
             "ui_tests_toggle": False,
             "enum_choice": "Option A",
-            "license3_scrolled_to_end": False,
-            "license3_accepted": False,
             "install_dir": "",
         }
 
@@ -39,10 +94,9 @@ class Wizard(tk.Tk):
         # Build pages
         self.pages = []
         self.current = 0
-        self.pages.append(Page1(self.container, self.state, self._update_nav))
-        self.pages.append(Page2(self.container, self.state, self._update_nav))
-        self.pages.append(Page3(self.container, self.state, self._update_nav))
-        self.pages.append(Page4(self.container, self.state, self._update_nav))
+        self.pages.append(Page1(self.container, self.state, self._update_nav, 1))
+        self.pages.append(Page2(self.container, self.state, self._update_nav, 2))
+        self.pages.append(Page3(self.container, self.state, self._update_nav, 3))
 
         for p in self.pages:
             p.place(relx=0, rely=0, relwidth=1, relheight=1)
@@ -69,8 +123,6 @@ class Wizard(tk.Tk):
         # Page-specific gating (enable/disable Next)
         if self.current == 0:
             can_next = self.state["license1_accepted"]
-        elif self.current == 2:
-            can_next = self.state["license3_accepted"] and self.state["license3_scrolled_to_end"]
         else:
             can_next = True
 
@@ -97,11 +149,20 @@ class Wizard(tk.Tk):
 # ------------------ PAGES ------------------
 
 class PageBase(tk.Frame):
-    def __init__(self, parent, state, on_change):
+    def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, bg="white")
         self.state = state
         self.on_change = on_change
+        self.page_number = page_number
 
+        # Load and display header image
+        header_image = load_header_image(page_number)
+        if header_image:
+            self.header_label = tk.Label(self, image=header_image, bg="white", borderwidth=0, highlightthickness=0)
+            self.header_label.image = header_image  # Keep reference to prevent garbage collection
+            self.header_label.pack(anchor="nw", padx=0, pady=0, fill="x")
+
+        # Title text (only if no image or as fallback)
         self.header = tk.Label(self, text=self.title_text(), font=("Segoe UI", 16, "bold"), bg="white")
         self.header.pack(anchor="w", padx=16, pady=(16, 8))
 
@@ -109,34 +170,80 @@ class PageBase(tk.Frame):
         self.body.pack(fill="both", expand=True, padx=16, pady=(0, 12))
 
     def title_text(self):
-        return "Page"
+        return f"Page {self.page_number}"
 
 class Page1(PageBase):
     def title_text(self): return "Page 1 — License (must accept)"
 
-    def __init__(self, parent, state, on_change):
-        super().__init__(parent, state, on_change)
+    def __init__(self, parent, state, on_change, page_number):
+        super().__init__(parent, state, on_change, page_number)
 
-        # Fake license text preview (short); acceptance is via button below
-        preview = tk.Text(self.body, height=14, wrap="word", bg="#fafafa")
-        preview.insert("1.0", "Short license intro...\n\n(Full license comes later on Page 3.)")
-        preview.config(state="disabled")
-        preview.pack(fill="both", expand=True)
+        # Scrollable long license text
+        wrapper = tk.Frame(self.body, bg="white", height=200)
+        wrapper.pack(fill="x")
 
-        # Accept button
-        def accept():
-            self.state["license1_accepted"] = True
-            self.accept_btn.config(state="disabled", text="Accepted")
+        self.scroll = tk.Scrollbar(wrapper)
+        self.scroll.pack(side="right", fill="y")
+
+        self.text = tk.Text(wrapper, wrap="word", yscrollcommand=self.scroll.set, bg="#fafafa", height=22)
+        self.text.pack(side="left", fill="both")
+        self.scroll.config(command=self.text.yview)
+
+        # Populate large license text
+        lines = []
+        for i in range(1, 201):  # 200 lines of license text
+            lines.append(f"License Agreement Line {i}: Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+                        f"Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. "
+                        f"Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. "
+                        f"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n")
+        self.text.insert("1.0", "".join(lines))
+        self.text.config(state="disabled")
+
+        # Accept toggle (disabled until scrolled to end)
+        self.accept_var = tk.BooleanVar(value=self.state["license1_accepted"])
+        def on_toggle():
+            self.state["license1_accepted"] = self.accept_var.get()
             self.on_change()
 
-        self.accept_btn = ttk.Button(self.body, text="Accept License", command=accept)
-        self.accept_btn.pack(side="right", pady=8)
+        self.accept_check = ttk.Checkbutton(self.body, text="I accept the license agreement",
+                                           variable=self.accept_var, command=on_toggle, state="disabled")
+        self.accept_check.pack(anchor="w", pady=(8, 0))
+
+        # Hint
+        tk.Label(self.body, text="You must scroll to the end of the license text above to enable the acceptance checkbox.",
+                 bg="white", fg="#555").pack(anchor="w", pady=(4, 0))
+
+        # Track scroll position; enable checkbox only at end
+        self._bind_scroll_checks()
+        self._check_scroll()
+
+    def _bind_scroll_checks(self):
+        # Bind events to the text widget
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>", "<KeyRelease>", "<ButtonRelease-1>", "<Configure>"):
+            self.text.bind(seq, lambda e: self.after(50, self._check_scroll))
+
+        # Bind events to the scrollbar widget
+        for seq in ("<ButtonRelease-1>", "<B1-Motion>", "<Button-1>", "<Button-2>", "<Button-3>"):
+            self.scroll.bind(seq, lambda e: self.after(50, self._check_scroll))
+
+    def _check_scroll(self):
+        # yview returns (first, last) fractions of the document visible
+        first, last = self.text.yview()
+        at_end = abs(last - 1.0) < 1e-3  # near bottom
+        self.state["license1_scrolled_to_end"] = at_end
+        if at_end:
+            self.accept_check.config(state="normal")
+        else:
+            self.accept_check.config(state="disabled")
+            self.accept_var.set(False)  # Reset acceptance if scrolled back up
+            self.state["license1_accepted"] = False
+        self.on_change()
 
 class Page2(PageBase):
     def title_text(self): return "Page 2 — Options test"
 
-    def __init__(self, parent, state, on_change):
-        super().__init__(parent, state, on_change)
+    def __init__(self, parent, state, on_change, page_number):
+        super().__init__(parent, state, on_change, page_number)
 
         # Toggle
         self.toggle_var = tk.BooleanVar(value=self.state["ui_tests_toggle"])
@@ -161,64 +268,10 @@ class Page2(PageBase):
         note.pack(anchor="w", pady=12)
 
 class Page3(PageBase):
-    def title_text(self): return "Page 3 — Read full text then accept"
+    def title_text(self): return "Page 3 — Choose install directory"
 
-    def __init__(self, parent, state, on_change):
-        super().__init__(parent, state, on_change)
-
-        # Scrollable long text
-        wrapper = tk.Frame(self.body, bg="white")
-        wrapper.pack(fill="both", expand=True)
-
-        self.scroll = tk.Scrollbar(wrapper)
-        self.scroll.pack(side="right", fill="y")
-
-        self.text = tk.Text(wrapper, wrap="word", yscrollcommand=self.scroll.set, bg="#fafafa")
-        self.text.pack(side="left", fill="both", expand=True)
-        self.scroll.config(command=self.text.yview)
-
-        # Populate ~300 lines
-        lines = []
-        for i in range(1, 301):
-            lines.append(f"Line {i}: lorem ipsum dolor sit amet...\n")
-        self.text.insert("1.0", "".join(lines))
-        self.text.config(state="disabled")
-
-        # Accept button (gated by scroll-to-end)
-        self.accept = ttk.Button(self.body, text="Accept (after scrolling to end)", state="disabled",
-                                 command=self._accept)
-        self.accept.pack(side="right", pady=8)
-
-        # Track scroll position; enable button only at end
-        self._bind_scroll_checks()
-        self._check_scroll()
-
-    def _bind_scroll_checks(self):
-        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>", "<KeyRelease>", "<ButtonRelease-1>", "<Configure>"):
-            self.text.bind(seq, lambda e: self.after(50, self._check_scroll))
-
-    def _check_scroll(self):
-        # yview returns (first, last) fractions of the document visible
-        first, last = self.text.yview()
-        at_end = abs(last - 1.0) < 1e-3  # near bottom
-        self.state["license3_scrolled_to_end"] = at_end
-        if at_end and not self.state["license3_accepted"]:
-            self.accept.config(state="normal")
-        else:
-            if not self.state["license3_accepted"]:
-                self.accept.config(state="disabled")
-        self.on_change()
-
-    def _accept(self):
-        self.state["license3_accepted"] = True
-        self.accept.config(text="Accepted", state="disabled")
-        self.on_change()
-
-class Page4(PageBase):
-    def title_text(self): return "Page 4 — Choose install directory"
-
-    def __init__(self, parent, state, on_change):
-        super().__init__(parent, state, on_change)
+    def __init__(self, parent, state, on_change, page_number):
+        super().__init__(parent, state, on_change, page_number)
 
         # Field + validation color
         path_row = tk.Frame(self.body, bg="white")
@@ -259,7 +312,6 @@ class Page4(PageBase):
         self.state["install_dir"] = val
         exists = os.path.isdir(val)
         self.entry.config(fg=("black" if exists else "red"))
-
 
 if __name__ == "__main__":
     app = Wizard()
