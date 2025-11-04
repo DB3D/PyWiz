@@ -4,6 +4,7 @@ import sys
 import tkinter as tk
 from tkinter import ttk, filedialog
 from PIL import Image, ImageTk
+import sv_ttk
 
 APP_TITLE = "PyWiz Installer"
 APP_SIZE = "720x880"  # Increased height to accommodate 700px header images + content
@@ -69,6 +70,9 @@ class Wizard(tk.Tk):
         else:
             print("Icon file not found")
 
+        # Set modern Sun Valley theme
+        sv_ttk.set_theme("dark")
+
         # Shared config state
         self.state = {
             "license1_scrolled_to_end": False,
@@ -79,16 +83,22 @@ class Wizard(tk.Tk):
         }
 
         # Container for pages
-        self.container = tk.Frame(self, bg="#f7f7f7")
+        self.container = tk.Frame(self)
         self.container.pack(fill="both", expand=True)
 
-        # Nav bar
-        self.nav = tk.Frame(self, height=52)
+        # Nav bar with darker background
+        self.nav = tk.Frame(self, height=52, bg="#1a1a1a")
         self.nav.pack(fill="x", side="bottom")
-        self.prev_btn = ttk.Button(self.nav, text="Previous", command=self.prev_page, takefocus=0)
-        self.next_btn = ttk.Button(self.nav, text="Next", command=self.next_page, takefocus=0)
 
+        self.prev_btn = ttk.Button(self.nav, text="Previous", command=self.prev_page, takefocus=0)
         self.prev_btn.pack(side="left", padx=10, pady=10)
+
+        # Page indicator centered
+        self.page_indicator = tk.Label(self.nav, text="Page 1", bg="#1a1a1a", fg="#888888",
+                                      font=("Segoe UI", 9))
+        self.page_indicator.place(relx=0.5, rely=0.5, anchor="center")
+
+        self.next_btn = ttk.Button(self.nav, text="Next", command=self.next_page, takefocus=0)
         self.next_btn.pack(side="right", padx=10, pady=10)
 
         # Build pages
@@ -108,6 +118,8 @@ class Wizard(tk.Tk):
         self.current = idx
         for i, p in enumerate(self.pages):
             p.tkraise() if i == idx else None
+        # Update page indicator
+        self.page_indicator.config(text=f"Page {idx + 1}")
         self._update_nav()
 
     def _update_nav(self):
@@ -150,7 +162,7 @@ class Wizard(tk.Tk):
 
 class PageBase(tk.Frame):
     def __init__(self, parent, state, on_change, page_number):
-        super().__init__(parent, bg="white")
+        super().__init__(parent)  # Let Sun Valley theme handle background
         self.state = state
         self.on_change = on_change
         self.page_number = page_number
@@ -158,15 +170,15 @@ class PageBase(tk.Frame):
         # Load and display header image
         header_image = load_header_image(page_number)
         if header_image:
-            self.header_label = tk.Label(self, image=header_image, bg="white", borderwidth=0, highlightthickness=0)
+            self.header_label = tk.Label(self, image=header_image, borderwidth=0, highlightthickness=0)
             self.header_label.image = header_image  # Keep reference to prevent garbage collection
             self.header_label.pack(anchor="nw", padx=0, pady=0, fill="x")
 
         # Title text (only if no image or as fallback)
-        self.header = tk.Label(self, text=self.title_text(), font=("Segoe UI", 16, "bold"), bg="white")
+        self.header = tk.Label(self, text=self.title_text(), font=("Segoe UI", 16, "bold"))
         self.header.pack(anchor="w", padx=16, pady=(16, 8))
 
-        self.body = tk.Frame(self, bg="white")
+        self.body = tk.Frame(self)
         self.body.pack(fill="both", expand=True, padx=16, pady=(0, 12))
 
     def title_text(self):
@@ -179,14 +191,14 @@ class Page1(PageBase):
         super().__init__(parent, state, on_change, page_number)
 
         # Scrollable long license text
-        wrapper = tk.Frame(self.body, bg="white", height=200)
+        wrapper = tk.Frame(self.body, height=200)
         wrapper.pack(fill="x")
 
         self.scroll = tk.Scrollbar(wrapper)
         self.scroll.pack(side="right", fill="y")
 
-        self.text = tk.Text(wrapper, wrap="word", yscrollcommand=self.scroll.set, bg="#fafafa", height=22)
-        self.text.pack(side="left", fill="both")
+        self.text = tk.Text(wrapper, wrap="word", yscrollcommand=self.scroll.set, height=25, background="black")
+        self.text.pack(side="left", fill="both", expand=True)
         self.scroll.config(command=self.text.yview)
 
         # Populate large license text
@@ -210,8 +222,7 @@ class Page1(PageBase):
         self.accept_check.pack(anchor="w", pady=(8, 0))
 
         # Hint
-        tk.Label(self.body, text="You must scroll to the end of the license text above to enable the acceptance checkbox.",
-                 bg="white", fg="#555").pack(anchor="w", pady=(4, 0))
+        tk.Label(self.body, text="You must scroll to the end of the license text above to enable the acceptance checkbox.").pack(anchor="w", pady=(4, 0))
 
         # Track scroll position; enable checkbox only at end
         self._bind_scroll_checks()
@@ -222,9 +233,11 @@ class Page1(PageBase):
         for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>", "<KeyRelease>", "<ButtonRelease-1>", "<Configure>"):
             self.text.bind(seq, lambda e: self.after(50, self._check_scroll))
 
-        # Bind events to the scrollbar widget
-        for seq in ("<ButtonRelease-1>", "<B1-Motion>", "<Button-1>", "<Button-2>", "<Button-3>"):
-            self.scroll.bind(seq, lambda e: self.after(50, self._check_scroll))
+        # Bind events to the scrollbar widget - check scroll state after interaction
+        def on_scrollbar_release(event):
+            self.after(50, self._check_scroll)
+        
+        self.scroll.bind("<ButtonRelease-1>", on_scrollbar_release)
 
     def _check_scroll(self):
         # yview returns (first, last) fractions of the document visible
@@ -254,18 +267,18 @@ class Page2(PageBase):
 
         # Enum (combobox)
         ttk.Label(self.body, text="Choose an option:").pack(anchor="w", pady=(12, 4))
-        self.combo = ttk.Combobox(self.body, values=["Option A", "Option B", "Option C"], state="readonly", takefocus=0)
+        self.combo = ttk.Combobox(self.body, values=["Option A", "Option B", "Option C"], state="readonly", takefocus=0, height=5)
         self.combo.set(self.state["enum_choice"])
-        self.combo.pack(anchor="w", ipady=2)
+        self.combo.pack(anchor="w", ipady=4)
 
         def on_combo_change(_evt=None):
             self.state["enum_choice"] = self.combo.get()
+            # Clear selection after choosing to remove blue highlight
+            self.combo.selection_clear()
         self.combo.bind("<<ComboboxSelected>>", on_combo_change)
 
         # Note
-        note = tk.Label(self.body, text="Click Next to print the current config to the console.",
-                        fg="#555", bg="white")
-        note.pack(anchor="w", pady=12)
+        tk.Label(self.body, text="Click Next to print the current config to the console.").pack(anchor="w", pady=12)
 
 class Page3(PageBase):
     def title_text(self): return "Page 3 — Choose install directory"
@@ -274,14 +287,14 @@ class Page3(PageBase):
         super().__init__(parent, state, on_change, page_number)
 
         # Field + validation color
-        path_row = tk.Frame(self.body, bg="white")
+        path_row = tk.Frame(self.body)
         path_row.pack(fill="x", pady=(6, 4))
 
         ttk.Label(path_row, text="Install directory:").pack(side="left", padx=(0, 8))
         self.path_var = tk.StringVar(value=self.state["install_dir"])
 
         self.entry = tk.Entry(path_row, textvariable=self.path_var, width=60, takefocus=0)
-        self.entry.pack(side="left", fill="x", expand=True)
+        self.entry.pack(side="left", fill="x", expand=True, ipady=6)
         self.entry.bind("<KeyRelease>", lambda e: self._sync_and_validate())
 
         def pick_dir():
@@ -300,8 +313,7 @@ class Page3(PageBase):
         ttk.Button(self.body, text="Append F:/Foo/Foo/Foo", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
 
         # Hint
-        tk.Label(self.body, text="Field turns red if the path does not exist.",
-                 bg="white", fg="#555").pack(anchor="w", pady=(4, 0))
+        tk.Label(self.body, text="Field turns red if the path does not exist.").pack(anchor="w", pady=(4, 0))
 
         # Initial validation
         self._sync_and_validate()

@@ -61,6 +61,9 @@ def build_program():
         "--add-data", f"{ASSETSDIR};assets",
         ]
 
+    # Hidden imports for sv-ttk theme
+    args.extend(["--hidden-import", "sv_ttk"])
+
     if (os.path.exists(ICOPATH)):
         print('[INFO]: args: --icon: adding icon to the installer')
         args.append("--icon")
