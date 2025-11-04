@@ -16,15 +16,22 @@ def main():
     assert os.path.exists(PYPATH), f"[ERROR]: python.exe path does not exists '{PYPATH}'"
     BUILDFILE = os.path.abspath(__file__) #../PyWiz/source/build.py (this file)
     MAINDIR = os.path.dirname(BUILDFILE) #../PyWiz/source/
-    MAINFILE = os.path.join(MAINDIR,'main.py'), "[ERROR]: 'main.py' file not found? '../PyWiz/source/main.py'"
+    MAINFILE = os.path.join(MAINDIR,'main.py')
+    assert os.path.exists(MAINFILE), "[ERROR]: 'main.py' file not found? '../PyWiz/source/main.py'"
     ASSETSDIR = os.path.join(MAINDIR,'assets') #../PyWiz/source/assets/
     assert os.path.exists(ASSETSDIR), "[ERROR]: 'assets' directory not found? '../PyWiz/source/assets/'"
     PROJECTDIR = os.path.dirname(MAINDIR) #../PyWiz/
-    INSTALLER = os.path.join(PROJECTDIR,'installer.exe')
+
+    #define result directory
+    RESULTDIR = os.path.join(PROJECTDIR,'result') #../PyWiz/result/
+    os.makedirs(RESULTDIR, exist_ok=True)
+    BUILDWORKDIR = os.path.join(MAINDIR,'build') #../PyWiz/source/build/
+    BUILDSPECDIR = os.path.join(MAINDIR,'build') #../PyWiz/source/build/
+    INSTALLER = os.path.join(RESULTDIR,'installer.exe')
 
     #remove if already exists
     if os.path.exists(INSTALLER):
-        print('[INFO]: installer.exe already exists.. Removing')
+        print('[INFO]: installer.exe already exists in result/.. Removing')
         os.remove(INSTALLER)
 
     #tell python to build using the 
@@ -34,9 +41,9 @@ def main():
         "--onefile",
         "--name", "installer",
         "--noconfirm",
-        "--distpath", ???,
-        "--workpath", ???,
-        "--specpath", ???,
+        "--distpath", RESULTDIR,
+        "--workpath", BUILDWORKDIR,
+        "--specpath", BUILDSPECDIR,
         # "--icon", "assets/app.ico",  # optional
         "main.py",
         ]
