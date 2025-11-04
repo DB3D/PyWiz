@@ -1,10 +1,12 @@
 
 import os
 import sys
+
 import tkinter as tk
 from tkinter import ttk, filedialog
-from PIL import Image, ImageTk
 import sv_ttk
+
+from PIL import Image, ImageTk
 
 APP_TITLE = "PyWiz Installer"
 APP_SIZE = "720x880"  # Increased height to accommodate 700px header images + content
@@ -64,11 +66,10 @@ class Wizard(tk.Tk):
         if os.path.exists(ICON_PATH):
             try:
                 self.iconbitmap(ICON_PATH)
-                print("Icon set successfully")
             except Exception as e:
-                print(f"Warning: Could not set window icon: {e}")
+                print(f"[ERROR]: Wizard(): Could not set window icon: {e}")
         else:
-            print("Icon file not found")
+            print(f"[ERROR]: Wizard(): Icon file not found '{ICON_PATH}'")
 
         # Set modern Sun Valley theme
         sv_ttk.set_theme("dark")
@@ -87,14 +88,14 @@ class Wizard(tk.Tk):
         self.container.pack(fill="both", expand=True)
 
         # Nav bar with darker background
-        self.nav = tk.Frame(self, height=52, bg="#1a1a1a")
+        self.nav = tk.Frame(self, height=52, bg="#141414")
         self.nav.pack(fill="x", side="bottom")
 
         self.prev_btn = ttk.Button(self.nav, text="Previous", command=self.prev_page, takefocus=0)
         self.prev_btn.pack(side="left", padx=10, pady=10)
 
         # Page indicator centered
-        self.page_indicator = tk.Label(self.nav, text="Page 1", bg="#1a1a1a", fg="#888888",
+        self.page_indicator = tk.Label(self.nav, text="Page 1", bg="#141414", fg="#888888",
                                       font=("Segoe UI", 9))
         self.page_indicator.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -118,8 +119,8 @@ class Wizard(tk.Tk):
         self.current = idx
         for i, p in enumerate(self.pages):
             p.tkraise() if i == idx else None
-        # Update page indicator
-        self.page_indicator.config(text=f"Page {idx + 1}")
+        # Update page indicator with custom text
+        self.page_indicator.config(text=self.pages[idx].footer_text())
         self._update_nav()
 
     def _update_nav(self):
@@ -178,14 +179,24 @@ class PageBase(tk.Frame):
         self.header = tk.Label(self, text=self.title_text(), font=("Segoe UI", 16, "bold"))
         self.header.pack(anchor="w", padx=16, pady=(16, 8))
 
+        # Separator line below title
+        ttk.Separator(self, orient="horizontal").pack(fill="x", padx=16, pady=(0, 0))
+
+        # Spacer below separator
+        tk.Frame(self, height=16).pack()
+
         self.body = tk.Frame(self)
         self.body.pack(fill="both", expand=True, padx=16, pady=(0, 12))
 
     def title_text(self):
         return f"Page {self.page_number}"
 
+    def footer_text(self):
+        return f"Page {self.page_number}"
+
 class Page1(PageBase):
-    def title_text(self): return "Page 1 — License (must accept)"
+    def title_text(self): return "License Agreement"
+    def footer_text(self): return "Page 1"
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
@@ -194,11 +205,11 @@ class Page1(PageBase):
         wrapper = tk.Frame(self.body, height=200)
         wrapper.pack(fill="x")
 
-        self.scroll = tk.Scrollbar(wrapper)
+        self.scroll = ttk.Scrollbar(wrapper)
         self.scroll.pack(side="right", fill="y")
 
-        self.text = tk.Text(wrapper, wrap="word", yscrollcommand=self.scroll.set, height=25, background="black")
-        self.text.pack(side="left", fill="both", expand=True)
+        self.text = tk.Text(wrapper, wrap="word", yscrollcommand=self.scroll.set, height=26, background="#141414", borderwidth=0, highlightthickness=0)
+        self.text.pack(side="left", fill="both", expand=True, padx=(0, 8),)
         self.scroll.config(command=self.text.yview)
 
         # Populate large license text
@@ -253,7 +264,8 @@ class Page1(PageBase):
         self.on_change()
 
 class Page2(PageBase):
-    def title_text(self): return "Page 2 — Options test"
+    def title_text(self): return "Install Options"
+    def footer_text(self): return "Page 2"
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
@@ -265,23 +277,27 @@ class Page2(PageBase):
         ttk.Checkbutton(self.body, text="Enable UI tests (optional)", variable=self.toggle_var,
                         command=on_toggle, takefocus=0).pack(anchor="w", pady=8)
 
-        # Enum (combobox)
+        # Enum (using Radio buttons for cleaner look)
         ttk.Label(self.body, text="Choose an option:").pack(anchor="w", pady=(12, 4))
-        self.combo = ttk.Combobox(self.body, values=["Option A", "Option B", "Option C"], state="readonly", takefocus=0, height=5)
-        self.combo.set(self.state["enum_choice"])
-        self.combo.pack(anchor="w", ipady=4)
-
-        def on_combo_change(_evt=None):
-            self.state["enum_choice"] = self.combo.get()
-            # Clear selection after choosing to remove blue highlight
-            self.combo.selection_clear()
-        self.combo.bind("<<ComboboxSelected>>", on_combo_change)
+        
+        self.enum_var = tk.StringVar(value=self.state["enum_choice"])
+        options_frame = tk.Frame(self.body)
+        options_frame.pack(anchor="w", pady=(4, 0))
+        
+        for option in ["Option A", "Option B", "Option C"]:
+            ttk.Radiobutton(options_frame, text=option, variable=self.enum_var, 
+                          value=option, takefocus=0,
+                          command=lambda: self._update_enum_choice()).pack(anchor="w", pady=2)
 
         # Note
         tk.Label(self.body, text="Click Next to print the current config to the console.").pack(anchor="w", pady=12)
+        
+    def _update_enum_choice(self):
+        self.state["enum_choice"] = self.enum_var.get()
 
 class Page3(PageBase):
-    def title_text(self): return "Page 3 — Choose install directory"
+    def title_text(self): return "Define Install Directory"
+    def footer_text(self): return "Page 3"
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
