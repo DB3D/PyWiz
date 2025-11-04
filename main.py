@@ -85,8 +85,8 @@ class Wizard(tk.Tk):
         # Nav bar
         self.nav = tk.Frame(self, height=52)
         self.nav.pack(fill="x", side="bottom")
-        self.prev_btn = ttk.Button(self.nav, text="Previous", command=self.prev_page)
-        self.next_btn = ttk.Button(self.nav, text="Next", command=self.next_page)
+        self.prev_btn = ttk.Button(self.nav, text="Previous", command=self.prev_page, takefocus=0)
+        self.next_btn = ttk.Button(self.nav, text="Next", command=self.next_page, takefocus=0)
 
         self.prev_btn.pack(side="left", padx=10, pady=10)
         self.next_btn.pack(side="right", padx=10, pady=10)
@@ -206,7 +206,7 @@ class Page1(PageBase):
             self.on_change()
 
         self.accept_check = ttk.Checkbutton(self.body, text="I accept the license agreement",
-                                           variable=self.accept_var, command=on_toggle, state="disabled")
+                                           variable=self.accept_var, command=on_toggle, state="disabled", takefocus=0)
         self.accept_check.pack(anchor="w", pady=(8, 0))
 
         # Hint
@@ -250,11 +250,11 @@ class Page2(PageBase):
         def on_toggle():
             self.state["ui_tests_toggle"] = self.toggle_var.get()
         ttk.Checkbutton(self.body, text="Enable UI tests (optional)", variable=self.toggle_var,
-                        command=on_toggle).pack(anchor="w", pady=8)
+                        command=on_toggle, takefocus=0).pack(anchor="w", pady=8)
 
         # Enum (combobox)
         ttk.Label(self.body, text="Choose an option:").pack(anchor="w", pady=(12, 4))
-        self.combo = ttk.Combobox(self.body, values=["Option A", "Option B", "Option C"], state="readonly")
+        self.combo = ttk.Combobox(self.body, values=["Option A", "Option B", "Option C"], state="readonly", takefocus=0)
         self.combo.set(self.state["enum_choice"])
         self.combo.pack(anchor="w", ipady=2)
 
@@ -280,7 +280,7 @@ class Page3(PageBase):
         ttk.Label(path_row, text="Install directory:").pack(side="left", padx=(0, 8))
         self.path_var = tk.StringVar(value=self.state["install_dir"])
 
-        self.entry = tk.Entry(path_row, textvariable=self.path_var, width=60)
+        self.entry = tk.Entry(path_row, textvariable=self.path_var, width=60, takefocus=0)
         self.entry.pack(side="left", fill="x", expand=True)
         self.entry.bind("<KeyRelease>", lambda e: self._sync_and_validate())
 
@@ -290,14 +290,14 @@ class Page3(PageBase):
                 self.path_var.set(d)
                 self._sync_and_validate()
 
-        ttk.Button(path_row, text="Browse...", command=pick_dir).pack(side="left", padx=8)
+        ttk.Button(path_row, text="Browse...", command=pick_dir, takefocus=0).pack(side="left", padx=8)
 
         # Operator button: append F:/Foo/Foo/Foo
         def append_magic():
             self.path_var.set(self.path_var.get() + (" " if self.path_var.get() else "") + "F:/Foo/Foo/Foo")
             self._sync_and_validate()
 
-        ttk.Button(self.body, text="Append F:/Foo/Foo/Foo", command=append_magic).pack(anchor="w", pady=8)
+        ttk.Button(self.body, text="Append F:/Foo/Foo/Foo", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
 
         # Hint
         tk.Label(self.body, text="Field turns red if the path does not exist.",
