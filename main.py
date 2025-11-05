@@ -4,7 +4,7 @@ import sys
 from PIL import Image as pillowImage
 from PIL import ImageTk as pillowImageTk
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import sv_ttk #tk theme: https://github.com/rdbende/Sun-Valley-ttk-theme/tree/main
 
 APP_TITLE = "Geo-Scatter Installer"
@@ -19,6 +19,52 @@ def get_assets_dir():
 
 ASSETS_DIR = get_assets_dir()
 ICON_PATH = os.path.join(ASSETS_DIR, 'app.ico')
+
+def show_warning_near_mouse(parent, title="Warning", message="Warning"):
+    """Show a custom warning dialog near the mouse cursor"""
+    dialog = tk.Toplevel(parent)
+    dialog.title(title)
+    dialog.resizable(False, False)
+    dialog.configure(bg="#1c1c1c")
+
+    # Apply theme
+    sv_ttk.set_theme("dark")
+
+    # Set window icon if available
+    if os.path.exists(ICON_PATH):
+        try: dialog.iconbitmap(ICON_PATH)
+        except Exception as e:
+            print(f"[ERROR]: show_warning_near_mouse(): Could not set window icon: {e}")
+        
+    # Get mouse position
+    x = parent.winfo_pointerx() 
+    y = parent.winfo_pointery() 
+    
+    # Offset so OK button is at cursor    
+    x-=150
+    y-=150
+
+    # Define window position
+    dialog.geometry(f"+{x}+{y}")
+
+    # Content frame
+    content = tk.Frame(dialog, bg="#1c1c1c")
+    content.pack(fill="both", expand=True, padx=10, pady=10)
+
+    # Icon + Message
+    tk.Label(content, text="⚠️", font=("Segoe UI", 20), bg="#1c1c1c", fg="orange").pack(pady=(0, 10))
+    tk.Label(content, text=message, font=("Segoe UI", 10), bg="#1c1c1c", fg="white", 
+            wraplength=300, justify="left").pack(pady=(0, 20))
+
+    # OK button
+    tk.ttk.Button(content, text="OK", command=dialog.destroy, takefocus=0).pack()
+
+    # Make modal
+    dialog.transient(parent)
+    dialog.grab_set()
+    parent.wait_window(dialog)
+    
+    return None
 
 IMAGECACHE = {}
 
@@ -103,6 +149,10 @@ class Wizard(tk.Tk):
             p.wizard = self  # Set wizard reference for callbacks
             p.place(relx=0, rely=0, relwidth=1, relheight=1)
 
+        # Define transparent button style
+        style = tk.ttk.Style()
+        style.configure('Transparent.TButton', foreground='#666666')
+            
         self.update_page(0)
 
     # Navigation helpers
@@ -128,12 +178,17 @@ class Wizard(tk.Tk):
         self.prev_btn.config(command=current_page.prev_button_callback)
         self.next_btn.config(command=current_page.next_button_callback)
         
-        # Update button states
+        # Update button states enabled/disabled
         can_prev = current_page.prev_button_enabled() if hasattr(current_page, 'prev_button_enabled') else True
         self.prev_btn.config(state=("normal" if can_prev else "disabled"))
-
         can_next = current_page.next_button_enabled() if hasattr(current_page, 'next_button_enabled') else True
         self.next_btn.config(state=("normal" if can_next else "disabled"))
+        
+        # Apply greyed out style if page wants transparency effect
+        is_prev_greyedout = current_page.prev_button_greyedout() if hasattr(current_page, 'prev_button_greyedout') else False
+        self.prev_btn.configure(style='Transparent.TButton' if is_prev_greyedout else 'TButton')
+        is_next_greyedout = current_page.next_button_greyedout() if hasattr(current_page, 'next_button_greyedout') else False
+        self.next_btn.configure(style='Transparent.TButton' if is_next_greyedout else 'TButton')
         
         return None
 
@@ -169,23 +224,18 @@ class PageBase(tk.Frame):
     prev_button_name = "Previous"
     next_button_name = "Next"
 
-    # def prev_button_callback(self):
+    # def prev_button_callback/next_button_callback(self)->None:
     #     """*CHILDREN DEFINED*: Called when Previous button is clicked on this page"""
-    #     self.wizard.prev_page()
+    #     self.wizard.prev_page/next_page()
     #     return None
 
-    # def next_button_callback(self):
-    #     """*CHILDREN DEFINED*: Called when Next button is clicked on this page"""
-    #     self.wizard.next_page()
-    #     return None
-
-    # def prev_button_enabled(self):
-    #     """*CHILDREN DEFINED*: Override in subclasses to control Previous button state"""
-    #     return True
-
-    # def next_button_enabled(self):
+    # def prev_button_enabled/next_button_enabled(self)->bool:
     #     """*CHILDREN DEFINED*: Override in subclasses to control Next button state"""
     #     return True
+
+    # def prev_button_greyedout/next_button_greyedout(self)->bool:
+    #     """*CHILDREN DEFINED*: Override to make Next button semi-transparent, like enabled==False but user can click it"""
+    #     return False  # Return True to make button transparent when disabled
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent)  # Let Sun Valley theme handle background
@@ -222,16 +272,24 @@ class Page1(PageBase):
     prev_button_name = "Cancel"
     next_button_name = "Next"
 
-    def prev_button_callback(self):
+    def prev_button_callback(self) -> None:
         self.wizard.destroy()
         return None
 
-    def next_button_callback(self):
-        self.wizard.next_page()
+    def next_button_callback(self) -> None:
+        # Check if license accepted, otherwise show warning
+        match self.state["license1_accepted"]:
+            case False:
+                show_warning_near_mouse(self.wizard,
+                    title="Cannot continue",
+                    message="To continue the installation, agreeing with the license is required. The accept button will be available once you scroll to the end of the license text.",
+                    )
+            case True:
+                self.wizard.next_page()
         return None
 
-    def next_button_enabled(self):
-        return self.state["license1_accepted"]
+    def next_button_greyedout(self) -> bool:
+        return self.state["license1_accepted"]==False  # Make button semi-transparent when license not accepted, user can click it, will show warning
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
@@ -268,7 +326,7 @@ class Page1(PageBase):
         self.accept_check.pack(anchor="w", pady=(8, 0))
 
         # Hint
-        tk.Label(self.body, text="You must scroll to the end of the license text above to enable the acceptance checkbox.").pack(anchor="w", pady=(4, 0))
+        tk.Label(self.body, text="*Read the license first before accepting it. This button will be available once you scroll to the end of the license text.").pack(anchor="w", pady=(4, 0))
 
         # Track scroll position; enable checkbox only at end
         self.bind_scroll_checks()
@@ -308,11 +366,11 @@ class Page2(PageBase):
     prev_button_name = "Previous"
     next_button_name = "Next"
 
-    def prev_button_callback(self):
+    def prev_button_callback(self) -> None:
         self.wizard.prev_page()
         return None
 
-    def next_button_callback(self):
+    def next_button_callback(self) -> None:
         print("[CONFIG] ui_tests_toggle =", self.state["ui_tests_toggle"])
         print("[CONFIG] enum_choice     =", self.state["enum_choice"])
         self.wizard.next_page()
@@ -353,13 +411,22 @@ class Page3(PageBase):
     prev_button_name = "Previous"
     next_button_name = "Finish"
 
-    def prev_button_callback(self):
+    def prev_button_callback(self) -> None:
         self.wizard.prev_page()
         return None
 
-    def next_button_callback(self):
-        print("[DONE] Install directory =", self.state["install_dir"])
-        self.wizard.destroy()
+    def next_button_greyedout(self) -> bool:
+        return not self.path_var_valid
+
+    def next_button_callback(self) -> None:
+        match self.path_var_valid:
+            case False:
+                show_warning_near_mouse(self.wizard,
+                    title="Cannot continue",
+                    message="The install directory is not a directory. Please select a valid directory, and not a file.",
+                    )
+            case True:
+                self.wizard.destroy()
         return None
 
     def __init__(self, parent, state, on_change, page_number):
@@ -370,39 +437,41 @@ class Page3(PageBase):
         path_row.pack(fill="x", pady=(6, 4))
 
         tk.ttk.Label(path_row, text="Install directory:").pack(side="left", padx=(0, 8))
-        self.path_var = tk.StringVar(value=self.state["install_dir"])
+        self.path_var = tk.StringVar(value=self.state["install_dir"],)
+        self.path_var_stripped = self.path_var.get().strip()
+        self.path_var_valid = False
 
-        self.entry = tk.Entry(path_row, textvariable=self.path_var, width=60, takefocus=0)
+        self.entry = tk.Entry(path_row, textvariable=self.path_var, width=60, takefocus=0, background="#141414", borderwidth=0, highlightthickness=0)
         self.entry.pack(side="left", fill="x", expand=True, ipady=6)
         self.entry.bind("<KeyRelease>", lambda e: self.sync_and_validate())
 
         def pick_dir():
             d = filedialog.askdirectory(title="Select installation directory")
-            if d:
-                self.path_var.set(d)
-                self.sync_and_validate()
+            self.path_var.set(d)
+            self.sync_and_validate()
+            return None
 
         tk.ttk.Button(path_row, text="Browse...", command=pick_dir, takefocus=0).pack(side="left", padx=8)
 
-        # Operator button: append F:/Foo/Foo/Foo
+        # Operator button: append F:/This/Path
         def append_magic():
-            self.path_var.set(self.path_var.get() + (" " if self.path_var.get() else "") + "F:/Foo/Foo/Foo")
+            self.path_var.set(self.path_var.get() + (" " if self.path_var.get() else "") + "F:/This/Path")
             self.sync_and_validate()
+            return None
 
-        tk.ttk.Button(self.body, text="Append F:/Foo/Foo/Foo", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
+        tk.ttk.Button(self.body, text="Append F:/This/Path", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
 
         # Hint
         tk.Label(self.body, text="Field turns red if the path does not exist.").pack(anchor="w", pady=(4, 0))
 
-        # Initial validation
-        self.sync_and_validate()
         on_change()
 
     def sync_and_validate(self):
-        val = self.path_var.get().strip()
-        self.state["install_dir"] = val
-        exists = os.path.isdir(val)
-        self.entry.config(fg=("black" if exists else "red"))
+        self.path_var_stripped = self.path_var.get().strip()
+        self.path_var_valid = os.path.isdir(self.path_var_stripped)
+        self.state["install_dir"] = self.path_var_stripped
+        self.entry.config(fg=("white" if self.path_var_valid else "red"))
+        self.on_change()
         return None
 
 if __name__ == "__main__":
