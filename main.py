@@ -96,6 +96,7 @@ class Wizard(tk.Tk):
         self.pages.append(Page3(self.container, self.state, self.update_footer, 3))
 
         for p in self.pages:
+            p.wizard = self  # Set wizard reference for callbacks
             p.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         self.update_page(0)
@@ -103,29 +104,35 @@ class Wizard(tk.Tk):
     # Navigation helpers
     def update_page(self, idx: int):
         self.current = idx
+        current_page = self.pages[idx]
+        
         for i, p in enumerate(self.pages):
             p.tkraise() if i == idx else None
+        
         # Update page indicator with custom text
-        self.page_indicator.config(text=self.pages[idx].footer_text())
+        self.page_indicator.config(text=current_page.footer_text)
+        
+        # Update button labels
+        self.prev_btn.config(text=current_page.prev_button_name)
+        self.next_btn.config(text=current_page.next_button_name)
+        
+        # Update button commands to call page-specific callbacks
+        self.prev_btn.config(command=current_page.prev_button_callback)
+        self.next_btn.config(command=current_page.next_button_callback)
+        
         self.update_footer()
         return None
 
     def update_footer(self):
-        # Previous disabled on first page
-        self.prev_btn.config(state=("disabled" if self.current == 0 else "normal"))
+        # Safety check - don't update if pages aren't initialized yet
+        if not self.pages or self.current >= len(self.pages):
+            return None
+        current_page = self.pages[self.current]
 
-        # Next label/enable rules per page
-        if self.current == len(self.pages) - 1:
-            self.next_btn.config(text="Finish")
-        else:
-            self.next_btn.config(text="Next")
+        can_prev = current_page.prev_button_enabled() if current_page.prev_button_enabled() else True
+        self.prev_btn.config(state=("normal" if can_prev else "disabled"))
 
-        # Page-specific gating (enable/disable Next)
-        if self.current == 0:
-            can_next = self.state["license1_accepted"]
-        else:
-            can_next = True
-
+        can_next = current_page.next_button_enabled() if hasattr(current_page, 'next_button_enabled') else True
         self.next_btn.config(state=("normal" if can_next else "disabled"))
         return None
 
@@ -135,26 +142,41 @@ class Wizard(tk.Tk):
         return None
 
     def next_page(self):
-        # Hook: print config when leaving Page 2 by pressing Next
-        if self.current == 1:
-            print("[CONFIG] ui_tests_toggle =", self.state["ui_tests_toggle"])
-            print("[CONFIG] enum_choice     =", self.state["enum_choice"])
-        # Finish on last page
-        if self.current == len(self.pages) - 1:
-            print("[DONE] Install directory =", self.state["install_dir"])
-            self.destroy()
-            return
-        self.update_page(self.current + 1)
+        # Default next page behavior - just go to next page
+        if self.current < len(self.pages) - 1:
+            self.update_page(self.current + 1)
         return None
 
 # ------------------ PAGES ------------------
 
 class PageBase(tk.Frame):
+
+    title_text = "**Children Defined**"
+    footer_text = "**Children Defined**"
+
+    prev_button_name = "Previous"
+    next_button_name = "Next"
+
+    def prev_button_callback(self):
+        """Called when Previous button is clicked on this page"""
+        self.wizard.prev_page()
+        return None
+
+    def next_button_callback(self):
+        """Called when Next button is clicked on this page"""
+        self.wizard.next_page()
+        return None
+
+    def next_button_enabled(self):
+        """Override in subclasses to control Next button state"""
+        return True
+
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent)  # Let Sun Valley theme handle background
         self.state = state
         self.on_change = on_change
         self.page_number = page_number
+        self.wizard = None  # Will be set by Wizard class
 
         # Load and display header image
         header_image = load_header_image(page_number)
@@ -164,7 +186,7 @@ class PageBase(tk.Frame):
             self.header_label.pack(anchor="nw", padx=0, pady=0, fill="x")
 
         # Title text (only if no image or as fallback)
-        self.header = tk.Label(self, text=self.title_text(), font=("Segoe UI", 16, "bold"))
+        self.header = tk.Label(self, text=self.title_text, font=("Segoe UI", 16, "bold"))
         self.header.pack(anchor="w", padx=16, pady=(16, 8))
 
         # Separator line below title
@@ -176,15 +198,27 @@ class PageBase(tk.Frame):
         self.body = tk.Frame(self)
         self.body.pack(fill="both", expand=True, padx=16, pady=(0, 12))
 
-    def title_text(self):
-        return f"Page {self.page_number}"
-
-    def footer_text(self):
-        return f"Page {self.page_number}"
-
 class Page1(PageBase):
-    def title_text(self): return "License Agreement"
-    def footer_text(self): return "Page 1"
+
+    title_text = "License Agreement"
+    footer_text = "Page 1"
+
+    prev_button_name = "Cancel"
+    next_button_name = "Next"
+
+    def prev_button_enabled(self):
+        return True
+
+    def prev_button_callback(self):
+        self.wizard.destroy()
+        return None
+
+    def next_button_callback(self):
+        self.wizard.next_page()
+        return None
+
+    def next_button_enabled(self):
+        return self.state["license1_accepted"]
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
@@ -224,21 +258,22 @@ class Page1(PageBase):
         tk.Label(self.body, text="You must scroll to the end of the license text above to enable the acceptance checkbox.").pack(anchor="w", pady=(4, 0))
 
         # Track scroll position; enable checkbox only at end
-        self._bind_scroll_checks()
-        self._check_scroll()
+        self.bind_scroll_checks()
+        self.check_scroll()
 
-    def _bind_scroll_checks(self):
+    def bind_scroll_checks(self):
         # Bind events to the text widget
         for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>", "<KeyRelease>", "<ButtonRelease-1>", "<Configure>"):
-            self.text.bind(seq, lambda e: self.after(50, self._check_scroll))
+            self.text.bind(seq, lambda e: self.after(50, self.check_scroll))
 
         # Bind events to the scrollbar widget - check scroll state after interaction
         def on_scrollbar_release(event):
-            self.after(50, self._check_scroll)
+            self.after(50, self.check_scroll)
         
         self.scroll.bind("<ButtonRelease-1>", on_scrollbar_release)
+        return None
 
-    def _check_scroll(self):
+    def check_scroll(self):
         # yview returns (first, last) fractions of the document visible
         first, last = self.text.yview()
         at_end = abs(last - 1.0) < 1e-3  # near bottom
@@ -250,10 +285,28 @@ class Page1(PageBase):
             self.accept_var.set(False)  # Reset acceptance if scrolled back up
             self.state["license1_accepted"] = False
         self.on_change()
+        return None
 
 class Page2(PageBase):
-    def title_text(self): return "Install Options"
-    def footer_text(self): return "Page 2"
+
+    title_text = "Install Options"
+    footer_text = "Page 2"
+
+    prev_button_name = "Previous"
+    next_button_name = "Next"
+
+    def prev_button_callback(self):
+        self.wizard.prev_page()
+        return None
+
+    def next_button_callback(self):
+        print("[CONFIG] ui_tests_toggle =", self.state["ui_tests_toggle"])
+        print("[CONFIG] enum_choice     =", self.state["enum_choice"])
+        self.wizard.next_page()
+        return None
+
+    def next_button_enabled(self):
+        return True
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
@@ -275,17 +328,32 @@ class Page2(PageBase):
         for option in ["Option A", "Option B", "Option C"]:
             tk.ttk.Radiobutton(options_frame, text=option, variable=self.enum_var, 
                           value=option, takefocus=0,
-                          command=lambda: self._update_enum_choice()).pack(anchor="w", pady=2)
+                          command=lambda: self.update_enum_pick()).pack(anchor="w", pady=2)
 
         # Note
         tk.Label(self.body, text="Click Next to print the current config to the console.").pack(anchor="w", pady=12)
         
-    def _update_enum_choice(self):
+    def update_enum_pick(self):
         self.state["enum_choice"] = self.enum_var.get()
 
 class Page3(PageBase):
-    def title_text(self): return "Define Install Directory"
-    def footer_text(self): return "Page 3"
+    title_text = "Define Install Directory"
+    footer_text = "Page 3"
+
+    prev_button_name = "Previous"
+    next_button_name = "Finish"
+
+    def prev_button_callback(self):
+        self.wizard.prev_page()
+        return None
+
+    def next_button_callback(self):
+        print("[DONE] Install directory =", self.state["install_dir"])
+        self.wizard.destroy()
+        return None
+
+    def next_button_enabled(self):
+        return True
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
@@ -299,20 +367,20 @@ class Page3(PageBase):
 
         self.entry = tk.Entry(path_row, textvariable=self.path_var, width=60, takefocus=0)
         self.entry.pack(side="left", fill="x", expand=True, ipady=6)
-        self.entry.bind("<KeyRelease>", lambda e: self._sync_and_validate())
+        self.entry.bind("<KeyRelease>", lambda e: self.sync_and_validate())
 
         def pick_dir():
             d = tk.filedialog.askdirectory(title="Select installation directory")
             if d:
                 self.path_var.set(d)
-                self._sync_and_validate()
+                self.sync_and_validate()
 
         tk.ttk.Button(path_row, text="Browse...", command=pick_dir, takefocus=0).pack(side="left", padx=8)
 
         # Operator button: append F:/Foo/Foo/Foo
         def append_magic():
             self.path_var.set(self.path_var.get() + (" " if self.path_var.get() else "") + "F:/Foo/Foo/Foo")
-            self._sync_and_validate()
+            self.sync_and_validate()
 
         tk.ttk.Button(self.body, text="Append F:/Foo/Foo/Foo", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
 
@@ -320,14 +388,15 @@ class Page3(PageBase):
         tk.Label(self.body, text="Field turns red if the path does not exist.").pack(anchor="w", pady=(4, 0))
 
         # Initial validation
-        self._sync_and_validate()
+        self.sync_and_validate()
         on_change()
 
-    def _sync_and_validate(self):
+    def sync_and_validate(self):
         val = self.path_var.get().strip()
         self.state["install_dir"] = val
         exists = os.path.isdir(val)
         self.entry.config(fg=("black" if exists else "red"))
+        return None
 
 if __name__ == "__main__":
     app = Wizard()
