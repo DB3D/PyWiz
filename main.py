@@ -4,6 +4,7 @@ import sys
 from PIL import Image as pillowImage
 from PIL import ImageTk as pillowImageTk
 import tkinter as tk
+from tkinter import filedialog
 import sv_ttk #tk theme: https://github.com/rdbende/Sun-Valley-ttk-theme/tree/main
 
 APP_TITLE = "Geo-Scatter Installer"
@@ -60,6 +61,9 @@ class Wizard(tk.Tk):
         # Set modern Sun Valley theme
         sv_ttk.set_theme("dark")
 
+        # Set window close protocol
+        self.protocol("WM_DELETE_WINDOW", self.premature_window_close_callback)
+
         # Shared config state
         self.state = {
             "license1_scrolled_to_end": False,
@@ -91,9 +95,9 @@ class Wizard(tk.Tk):
         # Build pages
         self.pages = []
         self.current = 0
-        self.pages.append(Page1(self.container, self.state, self.update_footer, 1))
-        self.pages.append(Page2(self.container, self.state, self.update_footer, 2))
-        self.pages.append(Page3(self.container, self.state, self.update_footer, 3))
+        self.pages.append(Page1(self.container, self.state, self.update_page_state, 1))
+        self.pages.append(Page2(self.container, self.state, self.update_page_state, 2))
+        self.pages.append(Page3(self.container, self.state, self.update_page_state, 3))
 
         for p in self.pages:
             p.wizard = self  # Set wizard reference for callbacks
@@ -103,6 +107,10 @@ class Wizard(tk.Tk):
 
     # Navigation helpers
     def update_page(self, idx: int):
+        # Safety check - don't update if pages aren't initialized yet
+        if not self.pages or idx >= len(self.pages):
+            return None
+        
         self.current = idx
         current_page = self.pages[idx]
         
@@ -120,20 +128,18 @@ class Wizard(tk.Tk):
         self.prev_btn.config(command=current_page.prev_button_callback)
         self.next_btn.config(command=current_page.next_button_callback)
         
-        self.update_footer()
-        return None
-
-    def update_footer(self):
-        # Safety check - don't update if pages aren't initialized yet
-        if not self.pages or self.current >= len(self.pages):
-            return None
-        current_page = self.pages[self.current]
-
+        # Update button states
         can_prev = current_page.prev_button_enabled() if hasattr(current_page, 'prev_button_enabled') else True
         self.prev_btn.config(state=("normal" if can_prev else "disabled"))
 
         can_next = current_page.next_button_enabled() if hasattr(current_page, 'next_button_enabled') else True
         self.next_btn.config(state=("normal" if can_next else "disabled"))
+        
+        return None
+
+    def update_page_state(self):
+        """Called by pages when their state changes - just refresh current page"""
+        self.update_page(self.current)
         return None
 
     def prev_page(self):
@@ -142,9 +148,15 @@ class Wizard(tk.Tk):
         return None
 
     def next_page(self):
-        # Default next page behavior - just go to next page
-        if self.current < len(self.pages) - 1:
+        if (self.current < len(self.pages) - 1):
             self.update_page(self.current + 1)
+        return None
+
+    def premature_window_close_callback(self):
+        """Called when user closes the window (clicks X button)"""
+        print("[INFO] User unexpectely closed the installer window")
+        print("[INFO] Installation was cancelled")
+        self.destroy()
         return None
 
 # ------------------ PAGES ------------------
@@ -365,7 +377,7 @@ class Page3(PageBase):
         self.entry.bind("<KeyRelease>", lambda e: self.sync_and_validate())
 
         def pick_dir():
-            d = tk.filedialog.askdirectory(title="Select installation directory")
+            d = filedialog.askdirectory(title="Select installation directory")
             if d:
                 self.path_var.set(d)
                 self.sync_and_validate()
