@@ -129,7 +129,7 @@ class Wizard(tk.Tk):
             return None
         current_page = self.pages[self.current]
 
-        can_prev = current_page.prev_button_enabled() if current_page.prev_button_enabled() else True
+        can_prev = current_page.prev_button_enabled() if hasattr(current_page, 'prev_button_enabled') else True
         self.prev_btn.config(state=("normal" if can_prev else "disabled"))
 
         can_next = current_page.next_button_enabled() if hasattr(current_page, 'next_button_enabled') else True
@@ -151,25 +151,29 @@ class Wizard(tk.Tk):
 
 class PageBase(tk.Frame):
 
-    title_text = "**Children Defined**"
-    footer_text = "**Children Defined**"
+    title_text = "*CHILDREN DEFINED*"
+    footer_text = "*CHILDREN DEFINED*"
 
     prev_button_name = "Previous"
     next_button_name = "Next"
 
-    def prev_button_callback(self):
-        """Called when Previous button is clicked on this page"""
-        self.wizard.prev_page()
-        return None
+    # def prev_button_callback(self):
+    #     """*CHILDREN DEFINED*: Called when Previous button is clicked on this page"""
+    #     self.wizard.prev_page()
+    #     return None
 
-    def next_button_callback(self):
-        """Called when Next button is clicked on this page"""
-        self.wizard.next_page()
-        return None
+    # def next_button_callback(self):
+    #     """*CHILDREN DEFINED*: Called when Next button is clicked on this page"""
+    #     self.wizard.next_page()
+    #     return None
 
-    def next_button_enabled(self):
-        """Override in subclasses to control Next button state"""
-        return True
+    # def prev_button_enabled(self):
+    #     """*CHILDREN DEFINED*: Override in subclasses to control Previous button state"""
+    #     return True
+
+    # def next_button_enabled(self):
+    #     """*CHILDREN DEFINED*: Override in subclasses to control Next button state"""
+    #     return True
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent)  # Let Sun Valley theme handle background
@@ -205,9 +209,6 @@ class Page1(PageBase):
 
     prev_button_name = "Cancel"
     next_button_name = "Next"
-
-    def prev_button_enabled(self):
-        return True
 
     def prev_button_callback(self):
         self.wizard.destroy()
@@ -305,9 +306,6 @@ class Page2(PageBase):
         self.wizard.next_page()
         return None
 
-    def next_button_enabled(self):
-        return True
-
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
 
@@ -351,9 +349,6 @@ class Page3(PageBase):
         print("[DONE] Install directory =", self.state["install_dir"])
         self.wizard.destroy()
         return None
-
-    def next_button_enabled(self):
-        return True
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
