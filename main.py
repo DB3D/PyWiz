@@ -1,56 +1,46 @@
 
 import os
 import sys
-
+from PIL import Image as pillowImage
+from PIL import ImageTk as pillowImageTk
 import tkinter as tk
-from tkinter import ttk, filedialog
-import sv_ttk
+import sv_ttk #tk theme: https://github.com/rdbende/Sun-Valley-ttk-theme/tree/main
 
-from PIL import Image, ImageTk
-
-APP_TITLE = "PyWiz Installer"
+APP_TITLE = "Geo-Scatter Installer"
 APP_SIZE = "720x880"  # Increased height to accommodate 700px header images + content
 
-# Get assets directory path (works for both development and bundled exe)
 def get_assets_dir():
     """Get the assets directory, handling both development and bundled execution"""
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
+    try: base_path = sys._MEIPASS # PyInstaller creates a temp folder and stores path in _MEIPASS
     except AttributeError:
-        # Running in development
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        base_path = os.path.dirname(os.path.abspath(__file__)) # Running in development
     return os.path.join(base_path, 'assets')
 
 ASSETS_DIR = get_assets_dir()
 ICON_PATH = os.path.join(ASSETS_DIR, 'app.ico')
 
-# Cache for loaded images to avoid reloading
-image_cache = {}
+IMAGECACHE = {}
 
 def load_header_image(page_number):
     """Load header image for the specified page number"""
     image_key = f"page{page_number}"
-    if image_key in image_cache:
-        return image_cache[image_key]
-
+    if (image_key in IMAGECACHE):
+        return IMAGECACHE[image_key]
     image_path = os.path.join(ASSETS_DIR, f'header_{image_key}.jpg')
     if os.path.exists(image_path):
-        try:
-            # Load and resize image to fit window width (720px) while maintaining aspect ratio
-            image = Image.open(image_path)
-            # Calculate new height to maintain aspect ratio for 720px width
-            aspect_ratio = image.height / image.width
+        try: 
+            image = pillowImage.open(image_path) # Load and resize image to fit window width (720px) while maintaining aspect ratio
+            aspect_ratio = image.height / image.width # Calculate new height to maintain aspect ratio for 720px width
             new_height = int(720 * aspect_ratio)
-            image = image.resize((720, new_height), Image.LANCZOS)
-            photo = ImageTk.PhotoImage(image)
-            image_cache[image_key] = photo
+            image = image.resize((720, new_height), pillowImage.LANCZOS)
+            photo = pillowImageTk.PhotoImage(image)
+            IMAGECACHE[image_key] = photo
             return photo
         except Exception as e:
-            print(f"Warning: Could not load header image for {image_key}: {e}")
+            print(f"[WARNING]: Could not load header image for {image_key}: {e}")
             return None
     else:
-        print(f"Warning: Header image not found: {image_path}")
+        print(f"[WARNING]: Header image not found: {image_path}")
         return None
 
 class Wizard(tk.Tk):
@@ -61,15 +51,11 @@ class Wizard(tk.Tk):
         self.resizable(False, False)
 
         # Set window icon if available
-        print(f"Looking for icon at: {ICON_PATH}")
-        print(f"Icon exists: {os.path.exists(ICON_PATH)}")
         if os.path.exists(ICON_PATH):
-            try:
-                self.iconbitmap(ICON_PATH)
+            try: self.iconbitmap(ICON_PATH)
             except Exception as e:
                 print(f"[ERROR]: Wizard(): Could not set window icon: {e}")
-        else:
-            print(f"[ERROR]: Wizard(): Icon file not found '{ICON_PATH}'")
+        else:   print(f"[ERROR]: Wizard(): Icon file not found '{ICON_PATH}'")
 
         # Set modern Sun Valley theme
         sv_ttk.set_theme("dark")
@@ -81,7 +67,7 @@ class Wizard(tk.Tk):
             "ui_tests_toggle": False,
             "enum_choice": "Option A",
             "install_dir": "",
-        }
+            }
 
         # Container for pages
         self.container = tk.Frame(self)
@@ -91,7 +77,7 @@ class Wizard(tk.Tk):
         self.nav = tk.Frame(self, height=52, bg="#141414")
         self.nav.pack(fill="x", side="bottom")
 
-        self.prev_btn = ttk.Button(self.nav, text="Previous", command=self.prev_page, takefocus=0)
+        self.prev_btn = tk.ttk.Button(self.nav, text="Previous", command=self.prev_page, takefocus=0)
         self.prev_btn.pack(side="left", padx=10, pady=10)
 
         # Page indicator centered
@@ -99,31 +85,32 @@ class Wizard(tk.Tk):
                                       font=("Segoe UI", 9))
         self.page_indicator.place(relx=0.5, rely=0.5, anchor="center")
 
-        self.next_btn = ttk.Button(self.nav, text="Next", command=self.next_page, takefocus=0)
+        self.next_btn = tk.ttk.Button(self.nav, text="Next", command=self.next_page, takefocus=0)
         self.next_btn.pack(side="right", padx=10, pady=10)
 
         # Build pages
         self.pages = []
         self.current = 0
-        self.pages.append(Page1(self.container, self.state, self._update_nav, 1))
-        self.pages.append(Page2(self.container, self.state, self._update_nav, 2))
-        self.pages.append(Page3(self.container, self.state, self._update_nav, 3))
+        self.pages.append(Page1(self.container, self.state, self.update_footer, 1))
+        self.pages.append(Page2(self.container, self.state, self.update_footer, 2))
+        self.pages.append(Page3(self.container, self.state, self.update_footer, 3))
 
         for p in self.pages:
             p.place(relx=0, rely=0, relwidth=1, relheight=1)
 
-        self._show(0)
+        self.update_page(0)
 
     # Navigation helpers
-    def _show(self, idx: int):
+    def update_page(self, idx: int):
         self.current = idx
         for i, p in enumerate(self.pages):
             p.tkraise() if i == idx else None
         # Update page indicator with custom text
         self.page_indicator.config(text=self.pages[idx].footer_text())
-        self._update_nav()
+        self.update_footer()
+        return None
 
-    def _update_nav(self):
+    def update_footer(self):
         # Previous disabled on first page
         self.prev_btn.config(state=("disabled" if self.current == 0 else "normal"))
 
@@ -140,24 +127,25 @@ class Wizard(tk.Tk):
             can_next = True
 
         self.next_btn.config(state=("normal" if can_next else "disabled"))
+        return None
 
     def prev_page(self):
-        if self.current > 0:
-            self._show(self.current - 1)
+        if (self.current > 0):
+            self.update_page(self.current - 1)
+        return None
 
     def next_page(self):
         # Hook: print config when leaving Page 2 by pressing Next
         if self.current == 1:
             print("[CONFIG] ui_tests_toggle =", self.state["ui_tests_toggle"])
             print("[CONFIG] enum_choice     =", self.state["enum_choice"])
-
         # Finish on last page
         if self.current == len(self.pages) - 1:
             print("[DONE] Install directory =", self.state["install_dir"])
             self.destroy()
             return
-
-        self._show(self.current + 1)
+        self.update_page(self.current + 1)
+        return None
 
 # ------------------ PAGES ------------------
 
@@ -180,7 +168,7 @@ class PageBase(tk.Frame):
         self.header.pack(anchor="w", padx=16, pady=(16, 8))
 
         # Separator line below title
-        ttk.Separator(self, orient="horizontal").pack(fill="x", padx=16, pady=(0, 0))
+        tk.ttk.Separator(self, orient="horizontal").pack(fill="x", padx=16, pady=(0, 0))
 
         # Spacer below separator
         tk.Frame(self, height=16).pack()
@@ -205,7 +193,7 @@ class Page1(PageBase):
         wrapper = tk.Frame(self.body, height=200)
         wrapper.pack(fill="x")
 
-        self.scroll = ttk.Scrollbar(wrapper)
+        self.scroll = tk.ttk.Scrollbar(wrapper)
         self.scroll.pack(side="right", fill="y")
 
         self.text = tk.Text(wrapper, wrap="word", yscrollcommand=self.scroll.set, height=26, background="#141414", borderwidth=0, highlightthickness=0)
@@ -228,7 +216,7 @@ class Page1(PageBase):
             self.state["license1_accepted"] = self.accept_var.get()
             self.on_change()
 
-        self.accept_check = ttk.Checkbutton(self.body, text="I accept the license agreement",
+        self.accept_check = tk.ttk.Checkbutton(self.body, text="I accept the license agreement",
                                            variable=self.accept_var, command=on_toggle, state="disabled", takefocus=0)
         self.accept_check.pack(anchor="w", pady=(8, 0))
 
@@ -274,18 +262,18 @@ class Page2(PageBase):
         self.toggle_var = tk.BooleanVar(value=self.state["ui_tests_toggle"])
         def on_toggle():
             self.state["ui_tests_toggle"] = self.toggle_var.get()
-        ttk.Checkbutton(self.body, text="Enable UI tests (optional)", variable=self.toggle_var,
+        tk.ttk.Checkbutton(self.body, text="Enable UI tests (optional)", variable=self.toggle_var,
                         command=on_toggle, takefocus=0).pack(anchor="w", pady=8)
 
         # Enum (using Radio buttons for cleaner look)
-        ttk.Label(self.body, text="Choose an option:").pack(anchor="w", pady=(12, 4))
+        tk.ttk.Label(self.body, text="Choose an option:").pack(anchor="w", pady=(12, 4))
         
         self.enum_var = tk.StringVar(value=self.state["enum_choice"])
         options_frame = tk.Frame(self.body)
         options_frame.pack(anchor="w", pady=(4, 0))
         
         for option in ["Option A", "Option B", "Option C"]:
-            ttk.Radiobutton(options_frame, text=option, variable=self.enum_var, 
+            tk.ttk.Radiobutton(options_frame, text=option, variable=self.enum_var, 
                           value=option, takefocus=0,
                           command=lambda: self._update_enum_choice()).pack(anchor="w", pady=2)
 
@@ -306,7 +294,7 @@ class Page3(PageBase):
         path_row = tk.Frame(self.body)
         path_row.pack(fill="x", pady=(6, 4))
 
-        ttk.Label(path_row, text="Install directory:").pack(side="left", padx=(0, 8))
+        tk.ttk.Label(path_row, text="Install directory:").pack(side="left", padx=(0, 8))
         self.path_var = tk.StringVar(value=self.state["install_dir"])
 
         self.entry = tk.Entry(path_row, textvariable=self.path_var, width=60, takefocus=0)
@@ -314,19 +302,19 @@ class Page3(PageBase):
         self.entry.bind("<KeyRelease>", lambda e: self._sync_and_validate())
 
         def pick_dir():
-            d = filedialog.askdirectory(title="Select installation directory")
+            d = tk.filedialog.askdirectory(title="Select installation directory")
             if d:
                 self.path_var.set(d)
                 self._sync_and_validate()
 
-        ttk.Button(path_row, text="Browse...", command=pick_dir, takefocus=0).pack(side="left", padx=8)
+        tk.ttk.Button(path_row, text="Browse...", command=pick_dir, takefocus=0).pack(side="left", padx=8)
 
         # Operator button: append F:/Foo/Foo/Foo
         def append_magic():
             self.path_var.set(self.path_var.get() + (" " if self.path_var.get() else "") + "F:/Foo/Foo/Foo")
             self._sync_and_validate()
 
-        ttk.Button(self.body, text="Append F:/Foo/Foo/Foo", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
+        tk.ttk.Button(self.body, text="Append F:/Foo/Foo/Foo", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
 
         # Hint
         tk.Label(self.body, text="Field turns red if the path does not exist.").pack(anchor="w", pady=(4, 0))
