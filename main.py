@@ -90,6 +90,15 @@ def load_header_image(page_number):
         print(f"[WARNING]: Header image not found: {image_path}")
         return None
 
+# oooooooooo.                               
+# `888'   `Y8b                              
+#  888     888  .oooo.    .oooo.o  .ooooo.  
+#  888oooo888' `P  )88b  d88(  "8 d88' `88b 
+#  888    `88b  .oP"888  `"Y88b.  888ooo888 
+#  888    .88P d8(  888  o.  )88b 888    .o 
+# o888bood8P'  `Y888""8o 8""888P' `Y8bod8P' 
+
+
 class Wizard(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -214,7 +223,6 @@ class Wizard(tk.Tk):
         self.destroy()
         return None
 
-# ------------------ PAGES ------------------
 
 class PageBase(tk.Frame):
 
@@ -264,6 +272,16 @@ class PageBase(tk.Frame):
         self.body = tk.Frame(self)
         self.body.pack(fill="both", expand=True, padx=16, pady=(0, 12))
 
+# ooooooooo.                                    .o  
+# `888   `Y88.                                o888  
+#  888   .d88'  .oooo.    .oooooooo  .ooooo.   888  
+#  888ooo88P'  `P  )88b  888' `88b  d88' `88b  888  
+#  888          .oP"888  888   888  888ooo888  888  
+#  888         d8(  888  `88bod8P'  888    .o  888  
+# o888o        `Y888""8o `8oooooo.  `Y8bod8P' o888o 
+#                        d"     YD                  
+#                        "Y88888P'                  
+                                                  
 class Page1(PageBase):
 
     title_text = "License Agreement"
@@ -358,6 +376,16 @@ class Page1(PageBase):
         self.on_change()
         return None
 
+# ooooooooo.                                    .oooo.   
+# `888   `Y88.                                .dP""Y88b  
+#  888   .d88'  .oooo.    .oooooooo  .ooooo.        ]8P' 
+#  888ooo88P'  `P  )88b  888' `88b  d88' `88b     .d8P'  
+#  888          .oP"888  888   888  888ooo888   .dP'     
+#  888         d8(  888  `88bod8P'  888    .o .oP     .o 
+# o888o        `Y888""8o `8oooooo.  `Y8bod8P' 8888888888 
+#                        d"     YD                       
+#                        "Y88888P'                       
+                                                       
 class Page2(PageBase):
 
     title_text = "Install Options"
@@ -371,38 +399,114 @@ class Page2(PageBase):
         return None
 
     def next_button_callback(self) -> None:
-        print("[CONFIG] ui_tests_toggle =", self.state["ui_tests_toggle"])
-        print("[CONFIG] enum_choice     =", self.state["enum_choice"])
+        print("[CONFIG] Desktop shortcut:", self.state['bool_option1'])
+        print(f"[CONFIG] Installation Type: {self.state['enum_choice']}")
+        print(f"[CONFIG] Memory Allocation: {self.state['float_value']:.1f} GB")
+        print(f"[CONFIG] Thread Count: {self.state['int_value']}")
         self.wizard.next_page()
         return None
 
     def __init__(self, parent, state, on_change, page_number):
         super().__init__(parent, state, on_change, page_number)
 
-        # Toggle
-        self.toggle_var = tk.BooleanVar(value=self.state["ui_tests_toggle"])
-        def on_toggle():
-            self.state["ui_tests_toggle"] = self.toggle_var.get()
-        tk.ttk.Checkbutton(self.body, text="Enable UI tests (optional)", variable=self.toggle_var,
-                        command=on_toggle, takefocus=0).pack(anchor="w", pady=8)
+        # Initialize state if needed
+        if "bool_option1" not in self.state:
+            self.state.update({
+                "bool_option1": True,
+                "enum_choice": "Standard",
+                "float_value": 50.0,
+                "int_value": 10,
+            })
 
-        # Enum (using Radio buttons for cleaner look)
-        tk.ttk.Label(self.body, text="Choose an option:").pack(anchor="w", pady=(12, 4))
+        # Panel 1: Boolean Checkbox
+        tk.ttk.Label(self.body, text="Installation Options:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
+        bool_frame = tk.Frame(self.body)
+        bool_frame.pack(anchor="w", fill="x", pady=(0, 16))
+        
+        self.bool1_var = tk.BooleanVar(value=self.state["bool_option1"])
+        
+        tk.ttk.Checkbutton(bool_frame, text="Create desktop shortcut", variable=self.bool1_var,
+                          command=lambda: self.update_bool("bool_option1", self.bool1_var), takefocus=0).pack(anchor="w", pady=1)
+
+        tk.ttk.Separator(self.body, orient="horizontal").pack(fill="x", pady=8)
+
+        # Panel 2: Enum Radio Buttons
+        tk.ttk.Label(self.body, text="Installation Type:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
         
         self.enum_var = tk.StringVar(value=self.state["enum_choice"])
-        options_frame = tk.Frame(self.body)
-        options_frame.pack(anchor="w", pady=(4, 0))
+        enum_frame = tk.Frame(self.body)
+        enum_frame.pack(anchor="w", pady=(0, 16))
         
-        for option in ["Option A", "Option B", "Option C"]:
-            tk.ttk.Radiobutton(options_frame, text=option, variable=self.enum_var, 
+        for option in ["Standard", "Complete", "Custom"]:
+            tk.ttk.Radiobutton(enum_frame, text=option, variable=self.enum_var, 
                           value=option, takefocus=0,
-                          command=lambda: self.update_enum_pick()).pack(anchor="w", pady=2)
+                          command=lambda: self.update_enum()).pack(anchor="w", pady=1)
+
+        tk.ttk.Separator(self.body, orient="horizontal").pack(fill="x", pady=8)
+
+        # Panel 3: Sliders
+        tk.ttk.Label(self.body, text="Advanced Settings:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
+        
+        # Float slider
+        float_frame = tk.Frame(self.body)
+        float_frame.pack(anchor="w", fill="x", pady=(8, 0))
+
+        tk.ttk.Label(float_frame, text="Memory Allocation (GB):").pack(anchor="w")
+        float_slider_frame = tk.Frame(float_frame)
+        float_slider_frame.pack(anchor="w", fill="x", pady=(4, 0))
+
+        self.float_var = tk.DoubleVar(value=self.state["float_value"])
+        self.float_slider = tk.ttk.Scale(float_slider_frame, from_=0, to=100, variable=self.float_var,
+                                        orient="horizontal", command=lambda v: self.update_float())
+        self.float_slider.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        self.float_label = tk.Label(float_slider_frame, text=f"{self.state['float_value']:.1f} GB", width=8)
+        self.float_label.pack(side="right")
+        
+        # Int slider
+        int_frame = tk.Frame(self.body)
+        int_frame.pack(anchor="w", fill="x", pady=(0, 0))
+        
+        tk.ttk.Label(int_frame, text="Thread Count:").pack(anchor="w")
+        int_slider_frame = tk.Frame(int_frame)
+        int_slider_frame.pack(anchor="w", fill="x", pady=(0, 0))
+        
+        self.int_var = tk.IntVar(value=self.state["int_value"])
+        self.int_slider = tk.ttk.Scale(int_slider_frame, from_=1, to=32, variable=self.int_var,
+                                      orient="horizontal", command=lambda v: self.update_int())
+        self.int_slider.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        self.int_label = tk.Label(int_slider_frame, text=f"{self.state['int_value']}", width=8)
+        self.int_label.pack(side="right")
 
         # Note
-        tk.Label(self.body, text="Click Next to print the current config to the console.").pack(anchor="w", pady=12)
+        tk.Label(self.body, text="Click Next to save configuration and continue.").pack(anchor="w", pady=(12, 0))
         
-    def update_enum_pick(self):
+    def update_bool(self, key, var):
+        self.state[key] = var.get()
+    
+    def update_enum(self):
         self.state["enum_choice"] = self.enum_var.get()
+    
+    def update_float(self):
+        val = self.float_var.get()
+        self.state["float_value"] = val
+        self.float_label.config(text=f"{val:.1f} GB")
+    
+    def update_int(self):
+        val = int(self.int_var.get())
+        self.state["int_value"] = val
+        self.int_label.config(text=f"{val}")
+
+# ooooooooo.                                    .oooo.   
+# `888   `Y88.                                .dP""Y88b  
+#  888   .d88'  .oooo.    .oooooooo  .ooooo.        ]8P' 
+#  888ooo88P'  `P  )88b  888' `88b  d88' `88b     <88b.  
+#  888          .oP"888  888   888  888ooo888      `88b. 
+#  888         d8(  888  `88bod8P'  888    .o o.   .88P  
+# o888o        `Y888""8o `8oooooo.  `Y8bod8P' `8bd88P'   
+#                        d"     YD                       
+#                        "Y88888P'                       
 
 class Page3(PageBase):
     title_text = "Define Install Directory"
