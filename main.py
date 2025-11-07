@@ -22,33 +22,32 @@ def get_assets_dir():
 ASSETS_DIR = get_assets_dir()
 ICON_PATH = os.path.join(ASSETS_DIR, 'app.ico')
 
+def set_window_icon(window):
+    """Set the window icon if available"""
+    if os.path.exists(ICON_PATH):
+        try: window.iconbitmap(ICON_PATH)
+        except Exception as e:
+            print(f"[ERROR]: set_window_icon(): Could not set window icon: {e}")
+    else:   print(f"[ERROR]: set_window_icon(): Icon file not found '{ICON_PATH}'")
+    return None
 
-def show_warning_near_mouse(parent, title="Warning", message="Warning"):
+def pop_warning_near_mouse(parent, title="Warning", message="Oh no!", geometry="320x220"):
     """Show a custom warning dialog near the mouse cursor"""
+    # Get mouse position first
+    x = parent.winfo_pointerx()
+    y = parent.winfo_pointery()
+    x -= 150 # Center the dialog better
+    y -= 150
+
+    # Create dialog but hide it initially
     dialog = tk.Toplevel(parent)
+    dialog.withdraw()  # Hide the window initially
     dialog.title(title)
     dialog.resizable(False, False)
     dialog.configure(bg="#1c1c1c")
 
-    # Apply theme
-    sv_ttk.set_theme("dark")
-
-    # Set window icon if available
-    if os.path.exists(ICON_PATH):
-        try: dialog.iconbitmap(ICON_PATH)
-        except Exception as e:
-            print(f"[ERROR]: show_warning_near_mouse(): Could not set window icon: {e}")
-        
-    # Get mouse position
-    x = parent.winfo_pointerx() 
-    y = parent.winfo_pointery() 
-    
-    # Offset so OK button is at cursor    
-    x-=150
-    y-=150
-
-    # Define window position
-    dialog.geometry(f"+{x}+{y}")
+    sv_ttk.set_theme("dark") # Apply theme
+    set_window_icon(dialog)
 
     # Content frame
     content = tk.Frame(dialog, bg="#1c1c1c")
@@ -56,18 +55,81 @@ def show_warning_near_mouse(parent, title="Warning", message="Warning"):
 
     # Icon + Message
     tk.Label(content, text="⚠️", font=("Segoe UI", 20), bg="#1c1c1c", fg="orange").pack(pady=(0, 10))
-    tk.Label(content, text=message, font=("Segoe UI", 10), bg="#1c1c1c", fg="white", 
+    tk.Label(content, text=message, font=("Segoe UI", 10), bg="#1c1c1c", fg="white",
             wraplength=300, justify="left").pack(pady=(0, 20))
 
     # OK button
     ttk.Button(content, text="OK", command=dialog.destroy, takefocus=0).pack()
 
-    # Make modal
+    # Force the dialog to calculate its size and set fixed geometry
+    dialog.update_idletasks()  # Force geometry calculation
+    dialog.geometry(f"{geometry}+{x}+{y}")  # Fixed size + position
+
+    # Make modal and show
     dialog.transient(parent)
     dialog.grab_set()
+    dialog.deiconify()  # Show the window at the correct position and size
     parent.wait_window(dialog)
-    
+
     return None
+
+def pop_confirmation_dialog(parent, title="Confirm", message="Are you sure?", confirm_text="Yes", cancel_text="No", geometry="320x240"):
+    """Show a confirmation dialog with Yes/No buttons"""
+    # Get mouse position for dialog placement
+    x = parent.winfo_pointerx()
+    y = parent.winfo_pointery()
+    x -= 100  # Center the dialog better
+    y -= 50
+
+    # Create dialog but hide it initially
+    dialog = tk.Toplevel(parent)
+    dialog.withdraw()
+    dialog.title(title)
+    dialog.resizable(False, False)
+    dialog.configure(bg="#1c1c1c")
+
+    sv_ttk.set_theme("dark") # Apply theme
+    set_window_icon(dialog)
+
+    # Content frame
+    content = tk.Frame(dialog, bg="#1c1c1c")
+    content.pack(fill="both", expand=True, padx=20, pady=20)
+
+    # Icon + Message
+    tk.Label(content, text="❓", font=("Segoe UI", 24), bg="#1c1c1c", fg="orange").pack(pady=(0, 10))
+    tk.Label(content, text=message, font=("Segoe UI", 11), bg="#1c1c1c", fg="white", wraplength=300, justify="center").pack(pady=(0, 20))
+
+    # Button frame
+    button_frame = tk.Frame(content, bg="#1c1c1c")
+    button_frame.pack()
+
+    # Result variable
+    result = tk.BooleanVar(value=False)
+
+    def on_confirm():
+        result.set(True)
+        dialog.destroy()
+        return None
+    def on_cancel():
+        result.set(False)
+        dialog.destroy()
+        return None
+
+    # Buttons
+    ttk.Button(button_frame, text=cancel_text, command=on_cancel, takefocus=0).pack(side="left", padx=(0, 10))
+    ttk.Button(button_frame, text=confirm_text, command=on_confirm, takefocus=0).pack(side="left")
+
+    # Force the dialog to calculate its size and set fixed geometry
+    dialog.update_idletasks()  # Force geometry calculation
+    dialog.geometry(f"{geometry}+{x}+{y}")  # Fixed size + position
+
+    # Make modal and show
+    dialog.transient(parent)
+    dialog.grab_set()
+    dialog.deiconify()  # Show the window at the correct position and size
+    parent.wait_window(dialog)
+
+    return result.get()
 
 
 IMAGECACHE = {}
@@ -112,19 +174,11 @@ class Wizard(tk.Tk):
         self.geometry(APP_SIZE)
         self.resizable(False, False)
 
-        # Set window icon if available
-        if os.path.exists(ICON_PATH):
-            try: self.iconbitmap(ICON_PATH)
-            except Exception as e:
-                print(f"[ERROR]: Wizard(): Could not set window icon: {e}")
-        else:   print(f"[ERROR]: Wizard(): Icon file not found '{ICON_PATH}'")
-
-        # Set modern Sun Valley theme
-        sv_ttk.set_theme("dark")
+        sv_ttk.set_theme("dark") # Set modern Sun Valley theme
+        set_window_icon(self)
 
         # Set window close protocol
         self.protocol("WM_DELETE_WINDOW", self.premature_window_close_callback)
-
 
         # Container for pages
         self.container = tk.Frame(self)
@@ -216,9 +270,19 @@ class Wizard(tk.Tk):
 
     def premature_window_close_callback(self):
         """Called when user closes the window (clicks X button)"""
-        print("[INFO] User unexpectely closed the installer window")
-        print("[INFO] Installation was cancelled")
-        self.destroy()
+        # Ask for confirmation before closing
+        confirmed = pop_confirmation_dialog(self,
+            message="Are you sure you want to cancel the installation?\n\nAll progress will be lost.",
+            confirm_text="Yes, Exit",
+            cancel_text="Continue Installation",
+            geometry="320x240",
+            )
+        if confirmed:
+            print("[INFO] User confirmed exit - closing installer window")
+            print("[INFO] Installation was cancelled")
+            self.destroy()
+        else:
+            print("[INFO] User cancelled exit - continuing installation")
         return None
 
 
@@ -292,9 +356,10 @@ class Page1(PageBase):
         # Check if license accepted, otherwise show warning
         match USERSTORAGE["license1_accepted"]:
             case False:
-                show_warning_near_mouse(self.wizard,
+                pop_warning_near_mouse(self.wizard,
                     title="Cannot continue",
                     message="To continue the installation, agreeing with the license is required. The accept button will be available once you scroll to the end of the license text.",
+                    geometry="320x205",
                     )
             case True:
                 self.wizard.next_page()
@@ -527,9 +592,10 @@ class Page3(PageBase):
     def next_button_callback(self) -> None:
         match self.loadbar_complete:
             case False:
-                show_warning_near_mouse(self.wizard,
+                pop_warning_near_mouse(self.wizard,
                     title="Cannot continue",
                     message="Loadbar has to be completed before continuing.",
+                    geometry="320x155",
                     )
             case True:
                 self.wizard.next_page()
@@ -639,9 +705,10 @@ class Page4(PageBase):
     def next_button_callback(self) -> None:
         match self.path_var_valid:
             case False:
-                show_warning_near_mouse(self.wizard,
+                pop_warning_near_mouse(self.wizard,
                     title="Cannot continue",
                     message="The install directory is not a directory. Please select a valid directory, and not a file.",
+                    geometry="320x180",
                     )
             case True:
                 self.wizard.destroy()
@@ -696,6 +763,7 @@ class Page4(PageBase):
         return None
 
 if __name__ == "__main__":
+    print('Launching the program...')
     app = Wizard()
     app.mainloop()
 
