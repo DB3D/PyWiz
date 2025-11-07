@@ -10,11 +10,10 @@ A simple Python installer template for creating beautiful desktop application in
 *   **Multi-Page Wizard** - Step-by-step installation process
 *   **Form Controls** - Basic UI with tkinter
 *   **Easy Template** - Add custom icons, splash and headers from your branding
-*   **Easy Configuration** - Simple class-based page system, just define your page in main.py
-*   **Build Scripts** - Ready-to-use PyInstaller and Nuitka builds
-*   **Error Handling** - Comprehensive error dialogs and logging
-*   **One-Click Builds** - Automated standalone executable creation
-*   **Cross-Platform** - Windows, macOS, Linux support. (NOTE: tested only on WinOS so far)
+*   **Easy Configuration** - Simple class-based page system, just define & add pages in main.py following the examples
+*   **Build Scripts** - Build the executable with the `build_nuikta.py` or `build_pyinstaller.py`. (NOTE: only tested on WinOS so far)
+*   **One-File** - Will produce a single executable with compressed archives
+*   **Cross-Platform** - Nuitka and PyInstaller supports Windows, macOS, Linux support. (NOTE: only tested on WinOS so far)
 
 ---
 
@@ -22,8 +21,17 @@ A simple Python installer template for creating beautiful desktop application in
 
 ### 1\. Install Dependencies
 
+
+for main.py
 ```
-pip install tkinter sv_ttk pillow pyinstaller
+pip install sv_ttk
+pip install pillow
+```
+
+for build_xx.py depending on your compiler choice
+```
+pip install pyinstaller
+pip install nuitka
 ```
 
 ### 2\. Create Your Installer
@@ -36,14 +44,14 @@ class MyInstallPage(PageBase):
 
     def __init__(self, parent, refresh_ui):
         super().__init__(parent, refresh_ui)
-        # Add your UI components here see examples of existing pages
+        # Add your UI components here see existing examples in main.py
 
-# Run the tk ui directly
+#NOTE: instead of building the .exe to test the app, you can run the script to test out the tkinter UI directly
 if __name__ == "__main__":
     app = Wizard()
     app.mainloop()
 
-#NOTE: store anything in the /assets folder, it will be packed in the .exe and unpacked in a temp directory, then use get_assets_dir() to find back the files you need.
+#NOTE: store anything in the `/assets` folder, it will be packed in the .exe and unpacked in a temp directory during launch,  in main, use get_assets_dir() to find back the files you need at runtime.
 ```
 
 ### 3\. Build Executable
@@ -57,7 +65,7 @@ Please keep the PyWiz logo on the splash lower corner.
 # Using PyInstaller (recommended for distribution)
 python build_pyinstaller.py
 
-# Using Nuitka (faster but AV-flagged)
+# Using Nuitka (faster but heavily AV-flagged..)
 python build_nuitka.py
 ```
 
