@@ -132,6 +132,49 @@ def pop_confirmation_dialog(parent, title="Confirm", message="Are you sure?", co
     return result.get()
 
 
+def pop_success_message(parent, title="Success!", message="Operation completed successfully.", geometry="320x200"):
+    """Show a success dialog with green checkmark"""
+    # Get mouse position first
+    x = parent.winfo_pointerx()
+    y = parent.winfo_pointery()
+    x -= 150  # Center the dialog better
+    y -= 150
+
+    # Create dialog but hide it initially
+    dialog = tk.Toplevel(parent)
+    dialog.withdraw()  # Hide the window initially
+    dialog.title(title)
+    dialog.resizable(False, False)
+    dialog.configure(bg="#1c1c1c")
+
+    sv_ttk.set_theme("dark") # Apply theme
+    set_window_icon(dialog)
+
+    # Content frame
+    content = tk.Frame(dialog, bg="#1c1c1c")
+    content.pack(fill="both", expand=True, padx=10, pady=10)
+
+    # Icon + Message
+    tk.Label(content, text="✅", font=("Segoe UI", 20), bg="#1c1c1c", fg="green").pack(pady=(0, 10))
+    tk.Label(content, text=message, font=("Segoe UI", 10), bg="#1c1c1c", fg="white",
+            wraplength=300, justify="left").pack(pady=(0, 20))
+
+    # OK button
+    ttk.Button(content, text="OK", command=dialog.destroy, takefocus=0).pack()
+
+    # Force the dialog to calculate its size and set fixed geometry
+    dialog.update_idletasks()  # Force geometry calculation
+    dialog.geometry(f"{geometry}+{x}+{y}")  # Fixed size + position
+
+    # Make modal and show
+    dialog.transient(parent)
+    dialog.grab_set()
+    dialog.deiconify()  # Show the window at the correct position and size
+    parent.wait_window(dialog)
+
+    return None
+
+
 IMAGECACHE = {}
 
 def load_header_image(page_number):
@@ -331,6 +374,8 @@ class PageBase(tk.Frame):
         # Define main layout area
         self.layout = tk.Frame(self)
         self.layout.pack(fill="both", expand=True, padx=16, pady=(0, 12))
+        
+        #... children defined init..
 
 # ooooooooo.                                    .o  
 # `888   `Y88.                                o888  
@@ -711,6 +756,11 @@ class Page4(PageBase):
                     geometry="320x180",
                     )
             case True:
+                pop_success_message(self.wizard,
+                    title="Installation Complete!",
+                    message="Your application has been successfully installed!\n\nThe installation process is now complete.\nThanks!",
+                    geometry="320x220",
+                    )
                 self.wizard.destroy()
         return None
 
@@ -764,6 +814,36 @@ class Page4(PageBase):
 
 if __name__ == "__main__":
     print('Launching the program...')
+
+    # Initialize the main app (this takes time)
     app = Wizard()
+
+    # Hide PyInstaller splash screen if it exists
+    try:
+        import pyi_splash
+        # Close splash immediately when app is ready
+        pyi_splash.close()
+        print("[SPLASH] PyInstaller splash screen closed successfully")
+    except ImportError:
+        # PyInstaller splash not available, that's fine
+        print("[SPLASH] PyInstaller splash screen not available (not using --splash)")
+    except Exception as e:
+        print(f"[SPLASH] Error closing splash screen: {e}")
+        # Try to force close it
+        try:
+            import pyi_splash
+            # Try multiple close attempts
+            for _ in range(3):
+                try:
+                    pyi_splash.close()
+                    break
+                except:
+                    import time
+                    time.sleep(0.1)
+            print("[SPLASH] Forced splash close attempted")
+        except:
+            print("[SPLASH] All splash close methods failed")
+
+    print("[APP] Starting main application...")
     app.mainloop()
 
