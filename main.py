@@ -1,6 +1,7 @@
 
 import os
 import sys
+import time
 from PIL import Image as pillowImage
 from PIL import ImageTk as pillowImageTk
 import tkinter as tk
@@ -153,6 +154,7 @@ class Wizard(tk.Tk):
         self.pages.append(Page1(self.container, self.state, self.update_page_state, 1))
         self.pages.append(Page2(self.container, self.state, self.update_page_state, 2))
         self.pages.append(Page3(self.container, self.state, self.update_page_state, 3))
+        self.pages.append(Page4(self.container, self.state, self.update_page_state, 4))
 
         for p in self.pages:
             p.wizard = self  # Set wizard reference for callbacks
@@ -225,10 +227,8 @@ class Wizard(tk.Tk):
 
 
 class PageBase(tk.Frame):
-
     title_text = "*CHILDREN DEFINED*"
     footer_text = "*CHILDREN DEFINED*"
-
     prev_button_name = "Previous"
     next_button_name = "Next"
 
@@ -254,7 +254,7 @@ class PageBase(tk.Frame):
 
         # Load and display header image
         header_image = load_header_image(page_number)
-        if header_image:
+        if (header_image is not None):
             self.header_label = tk.Label(self, image=header_image, borderwidth=0, highlightthickness=0)
             self.header_label.image = header_image  # Keep reference to prevent garbage collection
             self.header_label.pack(anchor="nw", padx=0, pady=0, fill="x")
@@ -283,12 +283,9 @@ class PageBase(tk.Frame):
 #                        "Y88888P'                  
                                                   
 class Page1(PageBase):
-
     title_text = "License Agreement"
     footer_text = "Page 1"
-
     prev_button_name = "Cancel"
-    next_button_name = "Next"
 
     def prev_button_callback(self) -> None:
         self.wizard.destroy()
@@ -335,9 +332,11 @@ class Page1(PageBase):
 
         # Accept toggle (disabled until scrolled to end)
         self.accept_var = tk.BooleanVar(value=self.state["license1_accepted"])
+
         def on_toggle():
             self.state["license1_accepted"] = self.accept_var.get()
             self.on_change()
+            return None
 
         self.accept_check = tk.ttk.Checkbutton(self.body, text="I accept the license agreement",
                                            variable=self.accept_var, command=on_toggle, state="disabled", takefocus=0)
@@ -358,6 +357,7 @@ class Page1(PageBase):
         # Bind events to the scrollbar widget - check scroll state after interaction
         def on_scrollbar_release(event):
             self.after(50, self.check_scroll)
+            return None
         
         self.scroll.bind("<ButtonRelease-1>", on_scrollbar_release)
         return None
@@ -387,12 +387,8 @@ class Page1(PageBase):
 #                        "Y88888P'                       
                                                        
 class Page2(PageBase):
-
     title_text = "Install Options"
     footer_text = "Page 2"
-
-    prev_button_name = "Previous"
-    next_button_name = "Next"
 
     def prev_button_callback(self) -> None:
         self.wizard.prev_page()
@@ -484,35 +480,154 @@ class Page2(PageBase):
         
     def update_bool(self, key, var):
         self.state[key] = var.get()
+        return None
     
     def update_enum(self):
         self.state["enum_choice"] = self.enum_var.get()
+        return None
     
     def update_float(self):
         val = self.float_var.get()
         self.state["float_value"] = val
         self.float_label.config(text=f"{val:.1f} GB")
+        return None
     
     def update_int(self):
         val = int(self.int_var.get())
         self.state["int_value"] = val
         self.int_label.config(text=f"{val}")
+        return None
 
-# ooooooooo.                                    .oooo.   
-# `888   `Y88.                                .dP""Y88b  
-#  888   .d88'  .oooo.    .oooooooo  .ooooo.        ]8P' 
-#  888ooo88P'  `P  )88b  888' `88b  d88' `88b     <88b.  
-#  888          .oP"888  888   888  888ooo888      `88b. 
-#  888         d8(  888  `88bod8P'  888    .o o.   .88P  
-# o888o        `Y888""8o `8oooooo.  `Y8bod8P' `8bd88P'   
-#                        d"     YD                       
-#                        "Y88888P'                       
+# ooooooooo.                                    .oooo.
+# `888   `Y88.                                .dP""Y88b
+#  888   .d88'  .oooo.    .oooooooo  .ooooo.        ]8P'
+#  888ooo88P'  `P  )88b  888' `88b  d88' `88b     <88b.
+#  888          .oP"888  888   888  888ooo888      `88b.
+#  888         d8(  888  `88bod8P'  888    .o o.   .88P
+# o888o        `Y888""8o `8oooooo.  `Y8bod8P' `8bd88P'
+#                        d"     YD
+#                        "Y88888P'
 
 class Page3(PageBase):
-    title_text = "Define Install Directory"
+    title_text = "Download Test"
     footer_text = "Page 3"
 
-    prev_button_name = "Previous"
+    def prev_button_callback(self) -> None:
+        self.wizard.prev_page()
+        return None
+
+    def next_button_callback(self) -> None:
+        match self.download_complete:
+            case False:
+                show_warning_near_mouse(self.wizard,
+                    title="Cannot continue",
+                    message="Download has to be completed before continuing.",
+                    )
+            case True:
+                self.wizard.next_page()
+        return None
+
+    def next_button_greyedout(self) -> bool:
+        return (self.download_complete==False)
+
+    def __init__(self, parent, state, on_change, page_number):
+        super().__init__(parent, state, on_change, page_number)
+
+        # Initialize download state
+        self.download_complete = False
+        self.download_progress = 0
+        self.download_running = False
+
+        # Initialize state if needed
+        if ("download_progress" not in self.state):
+            self.state.update({
+                "download_progress": 0,
+                "download_complete": False,
+            })
+
+        # Title and description
+        tk.ttk.Label(self.body, text="Loading Bar Test", font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(0, 8))
+        tk.Label(self.body, text="This page demonstrates a fake download process with a progress bar.\nClick the button below to start the download simulation.").pack(anchor="w", pady=(0, 20))
+
+        # Progress bar container
+        progress_frame = tk.Frame(self.body)
+        progress_frame.pack(fill="x", pady=(20, 0))
+
+        # Progress bar
+        self.progress_var = tk.DoubleVar(value=self.state["download_progress"])
+        self.progress_bar = tk.ttk.Progressbar(progress_frame, variable=self.progress_var, maximum=100, mode='determinate')
+        self.progress_bar.pack(fill="x", pady=(0, 5))
+
+        # Status label
+        self.status_label = tk.Label(progress_frame, text="Ready to start download", font=("Segoe UI", 10), fg="#888888")
+        self.status_label.pack(anchor="w")
+
+        # Download button
+        self.download_button = tk.ttk.Button(self.body, text="Start Fake Download", command=self.start_download, takefocus=0)
+        self.download_button.pack(anchor="w", pady=(20, 0))
+
+        # Instructions
+        tk.Label(self.body, text="Once the download reaches 100%, the Next button will be enabled.").pack(anchor="w", pady=(20, 0))
+
+    def start_download(self):
+        if (self.download_running==True):
+            return None
+        self.download_running = True
+        self.download_button.config(state="disabled", text="Downloading...")
+        self.download_progress = 0
+        self.progress_var.set(0)
+        self.status_label.config(text="Initializing download...", fg="#ffffff")
+        self.download_complete = False
+        self.on_change()
+
+        # Start the download simulation
+        self.update_progress()
+        return None
+
+    def update_progress(self):
+        if (self.download_running==False):
+            return None
+
+        self.download_progress += 1
+        self.progress_var.set(self.download_progress)
+        self.state["download_progress"] = self.download_progress
+
+        # Update status messages based on progress
+        match self.download_progress:
+            case v if (v >= 100):
+                self.status_label.config(text="Download complete!", fg="#00ff00")
+                self.download_complete = True
+                self.download_running = False
+                self.download_button.config(state="normal", text="Download Complete")
+                self.state["download_complete"] = True
+                self.on_change()
+                return
+            case 70:
+                self.status_label.config(text="Finalizing installation...", fg="#ffffff")
+            case 50:
+                self.status_label.config(text="Configuring settings...", fg="#ffffff")
+            case 30:
+                self.status_label.config(text="Installing dependencies...", fg="#ffffff")
+            case 20:
+                self.status_label.config(text="Downloading core files...", fg="#ffffff")
+
+        # Schedule next update
+        self.after(100, self.update_progress)
+        return None
+
+# ooooooooo.                                        .o   
+# `888   `Y88.                                    .d88   
+#  888   .d88'  .oooo.    .oooooooo  .ooooo.    .d'888   
+#  888ooo88P'  `P  )88b  888' `88b  d88' `88b .d'  888   
+#  888          .oP"888  888   888  888ooo888 88ooo888oo 
+#  888         d8(  888  `88bod8P'  888    .o      888   
+# o888o        `Y888""8o `8oooooo.  `Y8bod8P'     o888o  
+#                        d"     YD                       
+#                        "Y88888P'                       
+                                                       
+class Page4(PageBase):
+    title_text = "Define Install Directory"
+    footer_text = "Page 4"
     next_button_name = "Finish"
 
     def prev_button_callback(self) -> None:
@@ -520,7 +635,7 @@ class Page3(PageBase):
         return None
 
     def next_button_greyedout(self) -> bool:
-        return not self.path_var_valid
+        return (self.path_var_valid==False)
 
     def next_button_callback(self) -> None:
         match self.path_var_valid:

@@ -16,21 +16,21 @@ INSTALLER_NAME = 'GeoScatter5.6.1_installer' #name of the installer, no '.' or o
 
 #define common paths..
 assert os.path.exists(PYPATH), f"[ERROR]: python.exe path does not exists '{PYPATH}'"
-BUILDFILE = os.path.abspath(__file__) #../PyWiz/source/build.py (this file)
-MAINDIR = os.path.dirname(BUILDFILE) #../PyWiz/source/
+BUILDFILE = os.path.abspath(__file__) #../ParentFolder/pywiz/build.py (this file)
+MAINDIR = os.path.dirname(BUILDFILE) #../ParentFolder/pywiz/
 MAINFILE = os.path.join(MAINDIR,'main.py')
-assert os.path.exists(MAINFILE), "[ERROR]: 'main.py' file not found? '../PyWiz/source/main.py'"
-PROJECTDIR = os.path.dirname(MAINDIR) #../PyWiz/
+assert os.path.exists(MAINFILE), "[ERROR]: 'main.py' file not found? '../ParentFolder/pywiz/main.py'"
+PROJECTDIR = os.path.dirname(MAINDIR) #../ParentFolder/
 
 #define assets
-ASSETSDIR = os.path.join(MAINDIR,'assets') #../PyWiz/source/assets/
-assert os.path.exists(ASSETSDIR), "[ERROR]: 'assets' directory not found? '../PyWiz/source/assets/'"
+ASSETSDIR = os.path.join(MAINDIR,'assets') #../ParentFolder/pywiz/assets/
+assert os.path.exists(ASSETSDIR), "[ERROR]: 'assets' directory not found? '../ParentFolder/pywiz/assets/'"
 ICOPATH = os.path.join(ASSETSDIR,'app.ico')
 
 #define result directory
-RESULTDIR = PROJECTDIR  # D:\Work\PyWiz\
-BUILDWORKDIR = os.path.join(PROJECTDIR,'buildfiles') #../PyWiz/build/
-BUILDSPECDIR = os.path.join(PROJECTDIR,'buildfiles') #../PyWiz/build/
+RESULTDIR = PROJECTDIR  # D:\Work\ParentFolder\
+BUILDWORKDIR = os.path.join(PROJECTDIR,'buildfiles') #../ParentFolder/build/
+BUILDSPECDIR = os.path.join(PROJECTDIR,'buildfiles') #../ParentFolder/build/
 INSTALLER = os.path.join(RESULTDIR,f'{INSTALLER_NAME}.exe')
 
 #define fallback log file
