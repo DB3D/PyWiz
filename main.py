@@ -553,22 +553,22 @@ class Page3(PageBase):
         ttk.Label(self.body, text="Loading Bar Test", font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(0, 8))
         tk.Label(self.body, text="This page demonstrates a fake loading process with a progress bar.\nClick the button below to start the loading simulation.").pack(anchor="w", pady=(0, 20))
 
-        # Progress bar container
+        # Progress bar and button container
         progress_frame = tk.Frame(self.body)
         progress_frame.pack(fill="x", pady=(20, 0))
 
-        # Progress bar
+        # Progress bar (left side)
         self.progress_var = tk.DoubleVar(value=self.state["loadbar_progress"])
         self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, maximum=100, mode='determinate')
-        self.progress_bar.pack(fill="x", pady=(0, 5))
+        self.progress_bar.pack(side="left", fill="x", expand=True, pady=(0, 5))
 
-        # Status label
-        self.status_label = tk.Label(progress_frame, text="Ready to start loading", font=("Segoe UI", 10), fg="#888888")
-        self.status_label.pack(anchor="w")
+        # Start button (right side)
+        self.start_button = ttk.Button(progress_frame, text="Start Loading Stuff", command=self.start_loadbar, takefocus=0)
+        self.start_button.pack(side="right", padx=(10, 0))
 
-        # Start button
-        self.start_button = ttk.Button(self.body, text="Start Loading Stuff", command=self.start_loadbar, takefocus=0)
-        self.start_button.pack(anchor="w", pady=(20, 0))
+        # Status label (full width below progress bar)
+        self.status_label = tk.Label(self.body, text="Ready to start loading", font=("Segoe UI", 10), fg="#888888")
+        self.status_label.pack(anchor="w", pady=(5, 0))
 
         # Instructions
         tk.Label(self.body, text="Once the loadbar reaches 100%, the Next button will be enabled.").pack(anchor="w", pady=(20, 0))
