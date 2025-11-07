@@ -5,7 +5,8 @@ import time
 from PIL import Image as pillowImage
 from PIL import ImageTk as pillowImageTk
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import ttk
+from tkinter import filedialog
 import sv_ttk #tk theme: https://github.com/rdbende/Sun-Valley-ttk-theme/tree/main
 
 APP_TITLE = "Geo-Scatter Installer"
@@ -58,7 +59,7 @@ def show_warning_near_mouse(parent, title="Warning", message="Warning"):
             wraplength=300, justify="left").pack(pady=(0, 20))
 
     # OK button
-    tk.ttk.Button(content, text="OK", command=dialog.destroy, takefocus=0).pack()
+    ttk.Button(content, text="OK", command=dialog.destroy, takefocus=0).pack()
 
     # Make modal
     dialog.transient(parent)
@@ -137,7 +138,7 @@ class Wizard(tk.Tk):
         self.nav = tk.Frame(self, height=52, bg="#141414")
         self.nav.pack(fill="x", side="bottom")
 
-        self.prev_btn = tk.ttk.Button(self.nav, text="Previous", command=self.prev_page, takefocus=0)
+        self.prev_btn = ttk.Button(self.nav, text="Previous", command=self.prev_page, takefocus=0)
         self.prev_btn.pack(side="left", padx=10, pady=10)
 
         # Page indicator centered
@@ -145,23 +146,23 @@ class Wizard(tk.Tk):
                                       font=("Segoe UI", 9))
         self.page_indicator.place(relx=0.5, rely=0.5, anchor="center")
 
-        self.next_btn = tk.ttk.Button(self.nav, text="Next", command=self.next_page, takefocus=0)
+        self.next_btn = ttk.Button(self.nav, text="Next", command=self.next_page, takefocus=0)
         self.next_btn.pack(side="right", padx=10, pady=10)
 
         # Build pages
         self.pages = []
         self.current = 0
-        self.pages.append(Page1(self.container, self.state, self.update_page_state, 1))
-        self.pages.append(Page2(self.container, self.state, self.update_page_state, 2))
-        self.pages.append(Page3(self.container, self.state, self.update_page_state, 3))
-        self.pages.append(Page4(self.container, self.state, self.update_page_state, 4))
+        self.pages.append(Page1(self.container, self.state, self.update_page_state,))
+        self.pages.append(Page2(self.container, self.state, self.update_page_state,))
+        self.pages.append(Page3(self.container, self.state, self.update_page_state,))
+        self.pages.append(Page4(self.container, self.state, self.update_page_state,))
 
         for p in self.pages:
             p.wizard = self  # Set wizard reference for callbacks
             p.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         # Define transparent button style
-        style = tk.ttk.Style()
+        style = ttk.Style()
         style.configure('Transparent.TButton', foreground='#666666')
             
         self.update_page(0)
@@ -227,6 +228,7 @@ class Wizard(tk.Tk):
 
 
 class PageBase(tk.Frame):
+    page_number = -1
     title_text = "*CHILDREN DEFINED*"
     footer_text = "*CHILDREN DEFINED*"
     prev_button_name = "Previous"
@@ -245,15 +247,14 @@ class PageBase(tk.Frame):
     #     """*CHILDREN DEFINED*: Override to make Next button semi-transparent, like enabled==False but user can click it"""
     #     return False  # Return True to make button transparent when disabled
 
-    def __init__(self, parent, state, on_change, page_number):
+    def __init__(self, parent, state, on_change):
         super().__init__(parent)  # Let Sun Valley theme handle background
         self.state = state
         self.on_change = on_change
-        self.page_number = page_number
         self.wizard = None  # Will be set by Wizard class
 
         # Load and display header image
-        header_image = load_header_image(page_number)
+        header_image = load_header_image(self.page_number)
         if (header_image is not None):
             self.header_label = tk.Label(self, image=header_image, borderwidth=0, highlightthickness=0)
             self.header_label.image = header_image  # Keep reference to prevent garbage collection
@@ -264,7 +265,7 @@ class PageBase(tk.Frame):
         self.header.pack(anchor="w", padx=16, pady=(16, 8))
 
         # Separator line below title
-        tk.ttk.Separator(self, orient="horizontal").pack(fill="x", padx=16, pady=(0, 0))
+        ttk.Separator(self, orient="horizontal").pack(fill="x", padx=16, pady=(0, 0))
 
         # Spacer below separator
         tk.Frame(self, height=16).pack()
@@ -283,8 +284,9 @@ class PageBase(tk.Frame):
 #                        "Y88888P'                  
                                                   
 class Page1(PageBase):
+    page_number = 1
     title_text = "License Agreement"
-    footer_text = "Page 1"
+    footer_text = f"Page {page_number}"
     prev_button_name = "Cancel"
 
     def prev_button_callback(self) -> None:
@@ -306,14 +308,14 @@ class Page1(PageBase):
     def next_button_greyedout(self) -> bool:
         return self.state["license1_accepted"]==False  # Make button semi-transparent when license not accepted, user can click it, will show warning
 
-    def __init__(self, parent, state, on_change, page_number):
-        super().__init__(parent, state, on_change, page_number)
+    def __init__(self, parent, state, on_change):
+        super().__init__(parent, state, on_change)
 
         # Scrollable long license text
         wrapper = tk.Frame(self.body, height=200)
         wrapper.pack(fill="x")
 
-        self.scroll = tk.ttk.Scrollbar(wrapper)
+        self.scroll = ttk.Scrollbar(wrapper)
         self.scroll.pack(side="right", fill="y")
 
         self.text = tk.Text(wrapper, wrap="word", yscrollcommand=self.scroll.set, height=26, background="#141414", borderwidth=0, highlightthickness=0)
@@ -338,7 +340,7 @@ class Page1(PageBase):
             self.on_change()
             return None
 
-        self.accept_check = tk.ttk.Checkbutton(self.body, text="I accept the license agreement",
+        self.accept_check = ttk.Checkbutton(self.body, text="I accept the license agreement",
                                            variable=self.accept_var, command=on_toggle, state="disabled", takefocus=0)
         self.accept_check.pack(anchor="w", pady=(8, 0))
 
@@ -387,8 +389,9 @@ class Page1(PageBase):
 #                        "Y88888P'                       
                                                        
 class Page2(PageBase):
+    page_number = 2
     title_text = "Install Options"
-    footer_text = "Page 2"
+    footer_text = f"Page {page_number}"
 
     def prev_button_callback(self) -> None:
         self.wizard.prev_page()
@@ -402,8 +405,8 @@ class Page2(PageBase):
         self.wizard.next_page()
         return None
 
-    def __init__(self, parent, state, on_change, page_number):
-        super().__init__(parent, state, on_change, page_number)
+    def __init__(self, parent, state, on_change):
+        super().__init__(parent, state, on_change)
 
         # Initialize state if needed
         if "bool_option1" not in self.state:
@@ -415,44 +418,44 @@ class Page2(PageBase):
             })
 
         # Panel 1: Boolean Checkbox
-        tk.ttk.Label(self.body, text="Installation Options:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
+        ttk.Label(self.body, text="Installation Options:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
         bool_frame = tk.Frame(self.body)
         bool_frame.pack(anchor="w", fill="x", pady=(0, 16))
         
         self.bool1_var = tk.BooleanVar(value=self.state["bool_option1"])
         
-        tk.ttk.Checkbutton(bool_frame, text="Create desktop shortcut", variable=self.bool1_var,
+        ttk.Checkbutton(bool_frame, text="Create desktop shortcut", variable=self.bool1_var,
                           command=lambda: self.update_bool("bool_option1", self.bool1_var), takefocus=0).pack(anchor="w", pady=1)
 
-        tk.ttk.Separator(self.body, orient="horizontal").pack(fill="x", pady=8)
+        ttk.Separator(self.body, orient="horizontal").pack(fill="x", pady=8)
 
         # Panel 2: Enum Radio Buttons
-        tk.ttk.Label(self.body, text="Installation Type:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
+        ttk.Label(self.body, text="Installation Type:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
         
         self.enum_var = tk.StringVar(value=self.state["enum_choice"])
         enum_frame = tk.Frame(self.body)
         enum_frame.pack(anchor="w", pady=(0, 16))
         
         for option in ["Standard", "Complete", "Custom"]:
-            tk.ttk.Radiobutton(enum_frame, text=option, variable=self.enum_var, 
+            ttk.Radiobutton(enum_frame, text=option, variable=self.enum_var, 
                           value=option, takefocus=0,
                           command=lambda: self.update_enum()).pack(anchor="w", pady=1)
 
-        tk.ttk.Separator(self.body, orient="horizontal").pack(fill="x", pady=8)
+        ttk.Separator(self.body, orient="horizontal").pack(fill="x", pady=8)
 
         # Panel 3: Sliders
-        tk.ttk.Label(self.body, text="Advanced Settings:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
+        ttk.Label(self.body, text="Advanced Settings:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
         
         # Float slider
         float_frame = tk.Frame(self.body)
         float_frame.pack(anchor="w", fill="x", pady=(8, 0))
 
-        tk.ttk.Label(float_frame, text="Memory Allocation (GB):").pack(anchor="w")
+        ttk.Label(float_frame, text="Memory Allocation (GB):").pack(anchor="w")
         float_slider_frame = tk.Frame(float_frame)
         float_slider_frame.pack(anchor="w", fill="x", pady=(4, 0))
 
         self.float_var = tk.DoubleVar(value=self.state["float_value"])
-        self.float_slider = tk.ttk.Scale(float_slider_frame, from_=0, to=100, variable=self.float_var,
+        self.float_slider = ttk.Scale(float_slider_frame, from_=0, to=100, variable=self.float_var,
                                         orient="horizontal", command=lambda v: self.update_float())
         self.float_slider.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
@@ -463,12 +466,12 @@ class Page2(PageBase):
         int_frame = tk.Frame(self.body)
         int_frame.pack(anchor="w", fill="x", pady=(0, 0))
         
-        tk.ttk.Label(int_frame, text="Thread Count:").pack(anchor="w")
+        ttk.Label(int_frame, text="Thread Count:").pack(anchor="w")
         int_slider_frame = tk.Frame(int_frame)
         int_slider_frame.pack(anchor="w", fill="x", pady=(0, 0))
         
         self.int_var = tk.IntVar(value=self.state["int_value"])
-        self.int_slider = tk.ttk.Scale(int_slider_frame, from_=1, to=32, variable=self.int_var,
+        self.int_slider = ttk.Scale(int_slider_frame, from_=1, to=32, variable=self.int_var,
                                       orient="horizontal", command=lambda v: self.update_int())
         self.int_slider.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
@@ -509,97 +512,96 @@ class Page2(PageBase):
 #                        "Y88888P'
 
 class Page3(PageBase):
-    title_text = "Download Test"
-    footer_text = "Page 3"
+    page_number = 3
+    title_text = "Loadbar Test"
+    footer_text = f"Page {page_number}"
 
     def prev_button_callback(self) -> None:
         self.wizard.prev_page()
         return None
 
     def next_button_callback(self) -> None:
-        match self.download_complete:
+        match self.loadbar_complete:
             case False:
                 show_warning_near_mouse(self.wizard,
                     title="Cannot continue",
-                    message="Download has to be completed before continuing.",
+                    message="Loadbar has to be completed before continuing.",
                     )
             case True:
                 self.wizard.next_page()
         return None
 
     def next_button_greyedout(self) -> bool:
-        return (self.download_complete==False)
+        return (self.loadbar_complete==False)
 
-    def __init__(self, parent, state, on_change, page_number):
-        super().__init__(parent, state, on_change, page_number)
+    def __init__(self, parent, state, on_change):
+        super().__init__(parent, state, on_change)
 
-        # Initialize download state
-        self.download_complete = False
-        self.download_progress = 0
-        self.download_running = False
+        # Initialize loading state
+        self.loadbar_complete = False
+        self.loadbar_progress = 0
+        self.loadbar_loading = False
 
         # Initialize state if needed
-        if ("download_progress" not in self.state):
+        if ("loadbar_progress" not in self.state):
             self.state.update({
-                "download_progress": 0,
-                "download_complete": False,
+                "loadbar_progress": 0,
+                "loadbar_complete": False,
             })
 
         # Title and description
-        tk.ttk.Label(self.body, text="Loading Bar Test", font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(0, 8))
-        tk.Label(self.body, text="This page demonstrates a fake download process with a progress bar.\nClick the button below to start the download simulation.").pack(anchor="w", pady=(0, 20))
+        ttk.Label(self.body, text="Loading Bar Test", font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(0, 8))
+        tk.Label(self.body, text="This page demonstrates a fake loading process with a progress bar.\nClick the button below to start the loading simulation.").pack(anchor="w", pady=(0, 20))
 
         # Progress bar container
         progress_frame = tk.Frame(self.body)
         progress_frame.pack(fill="x", pady=(20, 0))
 
         # Progress bar
-        self.progress_var = tk.DoubleVar(value=self.state["download_progress"])
-        self.progress_bar = tk.ttk.Progressbar(progress_frame, variable=self.progress_var, maximum=100, mode='determinate')
+        self.progress_var = tk.DoubleVar(value=self.state["loadbar_progress"])
+        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, maximum=100, mode='determinate')
         self.progress_bar.pack(fill="x", pady=(0, 5))
 
         # Status label
-        self.status_label = tk.Label(progress_frame, text="Ready to start download", font=("Segoe UI", 10), fg="#888888")
+        self.status_label = tk.Label(progress_frame, text="Ready to start loading", font=("Segoe UI", 10), fg="#888888")
         self.status_label.pack(anchor="w")
 
-        # Download button
-        self.download_button = tk.ttk.Button(self.body, text="Start Fake Download", command=self.start_download, takefocus=0)
-        self.download_button.pack(anchor="w", pady=(20, 0))
+        # Start button
+        self.start_button = ttk.Button(self.body, text="Start Loading Stuff", command=self.start_loadbar, takefocus=0)
+        self.start_button.pack(anchor="w", pady=(20, 0))
 
         # Instructions
-        tk.Label(self.body, text="Once the download reaches 100%, the Next button will be enabled.").pack(anchor="w", pady=(20, 0))
+        tk.Label(self.body, text="Once the loadbar reaches 100%, the Next button will be enabled.").pack(anchor="w", pady=(20, 0))
 
-    def start_download(self):
-        if (self.download_running==True):
+    def start_loadbar(self):
+        if (self.loadbar_loading==True):
             return None
-        self.download_running = True
-        self.download_button.config(state="disabled", text="Downloading...")
-        self.download_progress = 0
+        self.loadbar_loading = True
+        self.start_button.config(state="disabled", text="Loading...")
+        self.loadbar_progress = 0
         self.progress_var.set(0)
-        self.status_label.config(text="Initializing download...", fg="#ffffff")
-        self.download_complete = False
+        self.status_label.config(text="Initializing loading...", fg="#ffffff")
+        self.loadbar_complete = False
         self.on_change()
-
-        # Start the download simulation
         self.update_progress()
         return None
 
     def update_progress(self):
-        if (self.download_running==False):
+        if (self.loadbar_loading==False):
             return None
 
-        self.download_progress += 1
-        self.progress_var.set(self.download_progress)
-        self.state["download_progress"] = self.download_progress
+        self.loadbar_progress += 1
+        self.progress_var.set(self.loadbar_progress)
+        self.state["loadbar_progress"] = self.loadbar_progress
 
         # Update status messages based on progress
-        match self.download_progress:
+        match self.loadbar_progress:
             case v if (v >= 100):
-                self.status_label.config(text="Download complete!", fg="#00ff00")
-                self.download_complete = True
-                self.download_running = False
-                self.download_button.config(state="normal", text="Download Complete")
-                self.state["download_complete"] = True
+                self.status_label.config(text="Loading complete!", fg="#00ff00")
+                self.loadbar_complete = True
+                self.loadbar_loading = False
+                self.start_button.config(state="normal", text="Loading Complete")
+                self.state["loadbar_complete"] = True
                 self.on_change()
                 return
             case 70:
@@ -609,7 +611,7 @@ class Page3(PageBase):
             case 30:
                 self.status_label.config(text="Installing dependencies...", fg="#ffffff")
             case 20:
-                self.status_label.config(text="Downloading core files...", fg="#ffffff")
+                self.status_label.config(text="Loading core files...", fg="#ffffff")
 
         # Schedule next update
         self.after(100, self.update_progress)
@@ -626,8 +628,9 @@ class Page3(PageBase):
 #                        "Y88888P'                       
                                                        
 class Page4(PageBase):
+    page_number = 4
     title_text = "Define Install Directory"
-    footer_text = "Page 4"
+    footer_text = f"Page {page_number}"
     next_button_name = "Finish"
 
     def prev_button_callback(self) -> None:
@@ -648,14 +651,14 @@ class Page4(PageBase):
                 self.wizard.destroy()
         return None
 
-    def __init__(self, parent, state, on_change, page_number):
-        super().__init__(parent, state, on_change, page_number)
+    def __init__(self, parent, state, on_change):
+        super().__init__(parent, state, on_change)
 
         # Field + validation color
         path_row = tk.Frame(self.body)
         path_row.pack(fill="x", pady=(6, 4))
 
-        tk.ttk.Label(path_row, text="Install directory:").pack(side="left", padx=(0, 8))
+        ttk.Label(path_row, text="Install directory:").pack(side="left", padx=(0, 8))
         self.path_var = tk.StringVar(value=self.state["install_dir"],)
         self.path_var_stripped = self.path_var.get().strip()
         self.path_var_valid = False
@@ -670,7 +673,7 @@ class Page4(PageBase):
             self.sync_and_validate()
             return None
 
-        tk.ttk.Button(path_row, text="Browse...", command=pick_dir, takefocus=0).pack(side="left", padx=8)
+        ttk.Button(path_row, text="Browse...", command=pick_dir, takefocus=0).pack(side="left", padx=8)
 
         # Operator button: append F:/This/Path
         def append_magic():
@@ -678,9 +681,7 @@ class Page4(PageBase):
             self.sync_and_validate()
             return None
 
-        tk.ttk.Button(self.body, text="Append F:/This/Path", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
-
-        # Hint
+        ttk.Button(self.body, text="Append F:/This/Path", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
         tk.Label(self.body, text="Field turns red if the path does not exist.").pack(anchor="w", pady=(4, 0))
 
         on_change()
