@@ -9,7 +9,6 @@ from tkinter import ttk
 from tkinter import filedialog
 import sv_ttk #tk theme: https://github.com/rdbende/Sun-Valley-ttk-theme/tree/main
 
-
 APP_TITLE = "Geo-Scatter Installer"
 APP_SIZE = "720x880"  # Increased height to accommodate 700px header images + content
 
@@ -104,6 +103,7 @@ def load_header_image(page_number):
 #  888    .88P d8(  888  o.  )88b 888    .o 
 # o888bood8P'  `Y888""8o 8""888P' `Y8bod8P' 
 
+USERSTORAGE = {} # Global storage for user data across all pages
 
 class Wizard(tk.Tk):
     def __init__(self):
@@ -125,14 +125,6 @@ class Wizard(tk.Tk):
         # Set window close protocol
         self.protocol("WM_DELETE_WINDOW", self.premature_window_close_callback)
 
-        # Shared properties storage
-        self.valuestorage = {
-            "license1_scrolled_to_end": False,
-            "license1_accepted": False,
-            "ui_tests_toggle": False,
-            "enum_choice": "Option A",
-            "install_dir": "",
-            }
 
         # Container for pages
         self.container = tk.Frame(self)
@@ -154,10 +146,10 @@ class Wizard(tk.Tk):
         # Build pages
         self.pages = []
         self.page_active_idx = 0
-        self.pages.append(Page1(self.container, self.valuestorage, self.refresh_page,))
-        self.pages.append(Page2(self.container, self.valuestorage, self.refresh_page,))
-        self.pages.append(Page3(self.container, self.valuestorage, self.refresh_page,))
-        self.pages.append(Page4(self.container, self.valuestorage, self.refresh_page,))
+        self.pages.append(Page1(self.container, self.refresh_page,))
+        self.pages.append(Page2(self.container, self.refresh_page,))
+        self.pages.append(Page3(self.container, self.refresh_page,))
+        self.pages.append(Page4(self.container, self.refresh_page,))
 
         # Set wizard reference for each classes
         for p in self.pages:
@@ -250,9 +242,8 @@ class PageBase(tk.Frame):
     #     """*CHILDREN DEFINED*: Override to make Next button semi-transparent, like enabled==False but user can click it"""
     #     return False  # Return True to make button transparent when disabled
 
-    def __init__(self, parent, valuestorage, refresh_ui):
+    def __init__(self, parent, refresh_ui):
         super().__init__(parent) # Let Sun Valley theme handle background
-        self.valuestorage = valuestorage
         self.refresh_ui = refresh_ui
         self.wizard = None  # Will be set by Wizard class
 
@@ -299,7 +290,7 @@ class Page1(PageBase):
 
     def next_button_callback(self) -> None:
         # Check if license accepted, otherwise show warning
-        match self.valuestorage["license1_accepted"]:
+        match USERSTORAGE["license1_accepted"]:
             case False:
                 show_warning_near_mouse(self.wizard,
                     title="Cannot continue",
@@ -310,11 +301,18 @@ class Page1(PageBase):
         return None
 
     def next_button_greyedout(self) -> bool:
-        return self.valuestorage["license1_accepted"]==False  # Make button semi-transparent when license not accepted, user can click it, will show warning
+        return USERSTORAGE["license1_accepted"]==False  # Make button semi-transparent when license not accepted, user can click it, will show warning
 
-    def __init__(self, parent, state, refresh_ui):
-        super().__init__(parent, state, refresh_ui)
+    def __init__(self, parent, refresh_ui):
+        super().__init__(parent, refresh_ui)
         layout = self.layout
+
+        # Initialize state if needed
+        if ("license1_scrolled_to_end" not in USERSTORAGE):
+            USERSTORAGE.update({
+                "license1_scrolled_to_end": False,
+                "license1_accepted": False,
+                })
 
         # Scrollable long license text
         wrapper = tk.Frame(layout, height=200)
@@ -338,10 +336,10 @@ class Page1(PageBase):
         self.text.config(state="disabled")
 
         # Accept toggle (disabled until scrolled to end)
-        self.accept_var = tk.BooleanVar(value=self.valuestorage["license1_accepted"])
+        self.accept_var = tk.BooleanVar(value=USERSTORAGE["license1_accepted"])
 
         def on_toggle():
-            self.valuestorage["license1_accepted"] = self.accept_var.get()
+            USERSTORAGE["license1_accepted"] = self.accept_var.get()
             self.refresh_ui()
             return None
 
@@ -373,13 +371,13 @@ class Page1(PageBase):
         # yview returns (first, last) fractions of the document visible
         first, last = self.text.yview()
         at_end = abs(last - 1.0) < 1e-3  # near bottom
-        self.valuestorage["license1_scrolled_to_end"] = at_end
+        USERSTORAGE["license1_scrolled_to_end"] = at_end
         if at_end:
             self.accept_check.config(state="normal")
         else:
             self.accept_check.config(state="disabled")
             self.accept_var.set(False)  # Reset acceptance if scrolled back up
-            self.valuestorage["license1_accepted"] = False
+            USERSTORAGE["license1_accepted"] = False
         self.refresh_ui()
         return None
 
@@ -403,33 +401,33 @@ class Page2(PageBase):
         return None
 
     def next_button_callback(self) -> None:
-        print("[CONFIG] Desktop shortcut:", self.valuestorage['bool_option1'])
-        print(f"[CONFIG] Installation Type: {self.valuestorage['enum_choice']}")
-        print(f"[CONFIG] Memory Allocation: {self.valuestorage['float_value']:.1f} GB")
-        print(f"[CONFIG] Thread Count: {self.valuestorage['int_value']}")
+        print("[CONFIG] Desktop shortcut:", USERSTORAGE['bool_option1'])
+        print(f"[CONFIG] Installation Type: {USERSTORAGE['enum_choice']}")
+        print(f"[CONFIG] Memory Allocation: {USERSTORAGE['float_value']:.1f} GB")
+        print(f"[CONFIG] Thread Count: {USERSTORAGE['int_value']}")
         self.wizard.next_page()
         return None
 
-    def __init__(self, parent, state, refresh_ui):
-        super().__init__(parent, state, refresh_ui)
+    def __init__(self, parent, refresh_ui):
+        super().__init__(parent, refresh_ui)
         layout = self.layout
 
         # Initialize state if needed
-        if "bool_option1" not in self.valuestorage:
-            self.valuestorage.update({
+        if ("bool_option1" not in USERSTORAGE):
+            USERSTORAGE.update({
                 "bool_option1": True,
                 "enum_choice": "Standard",
                 "float_value": 50.0,
                 "int_value": 10,
-            })
+                })
 
         # Panel 1: Boolean Checkbox
         ttk.Label(layout, text="Installation Options:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
         bool_frame = tk.Frame(layout)
         bool_frame.pack(anchor="w", fill="x", pady=(0, 16))
         
-        self.bool1_var = tk.BooleanVar(value=self.valuestorage["bool_option1"])
-        
+        self.bool1_var = tk.BooleanVar(value=USERSTORAGE["bool_option1"])
+
         ttk.Checkbutton(bool_frame, text="Create desktop shortcut", variable=self.bool1_var,
                           command=lambda: self.update_bool("bool_option1", self.bool1_var), takefocus=0).pack(anchor="w", pady=1)
 
@@ -437,8 +435,8 @@ class Page2(PageBase):
 
         # Panel 2: Enum Radio Buttons
         ttk.Label(layout, text="Installation Type:", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 8))
-        
-        self.enum_var = tk.StringVar(value=self.valuestorage["enum_choice"])
+
+        self.enum_var = tk.StringVar(value=USERSTORAGE["enum_choice"])
         enum_frame = tk.Frame(layout)
         enum_frame.pack(anchor="w", pady=(0, 16))
         
@@ -460,50 +458,50 @@ class Page2(PageBase):
         float_slider_frame = tk.Frame(float_frame)
         float_slider_frame.pack(anchor="w", fill="x", pady=(4, 0))
 
-        self.float_var = tk.DoubleVar(value=self.valuestorage["float_value"])
+        self.float_var = tk.DoubleVar(value=USERSTORAGE["float_value"])
         self.float_slider = ttk.Scale(float_slider_frame, from_=0, to=100, variable=self.float_var,
                                         orient="horizontal", command=lambda v: self.update_float())
         self.float_slider.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        
-        self.float_label = tk.Label(float_slider_frame, text=f"{self.valuestorage['float_value']:.1f} GB", width=8)
+
+        self.float_label = tk.Label(float_slider_frame, text=f"{USERSTORAGE['float_value']:.1f} GB", width=8)
         self.float_label.pack(side="right")
-        
+
         # Int slider
         int_frame = tk.Frame(layout)
         int_frame.pack(anchor="w", fill="x", pady=(0, 0))
-        
+
         ttk.Label(int_frame, text="Thread Count:").pack(anchor="w")
         int_slider_frame = tk.Frame(int_frame)
         int_slider_frame.pack(anchor="w", fill="x", pady=(0, 0))
-        
-        self.int_var = tk.IntVar(value=self.valuestorage["int_value"])
+
+        self.int_var = tk.IntVar(value=USERSTORAGE["int_value"])
         self.int_slider = ttk.Scale(int_slider_frame, from_=1, to=32, variable=self.int_var,
                                       orient="horizontal", command=lambda v: self.update_int())
         self.int_slider.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        
-        self.int_label = tk.Label(int_slider_frame, text=f"{self.valuestorage['int_value']}", width=8)
+
+        self.int_label = tk.Label(int_slider_frame, text=f"{USERSTORAGE['int_value']}", width=8)
         self.int_label.pack(side="right")
 
         # Note
         tk.Label(layout, text="Click Next to save configuration and continue.").pack(anchor="w", pady=(12, 0))
         
     def update_bool(self, key, var):
-        self.valuestorage[key] = var.get()
+        USERSTORAGE[key] = var.get()
         return None
-    
+
     def update_enum(self):
-        self.valuestorage["enum_choice"] = self.enum_var.get()
+        USERSTORAGE["enum_choice"] = self.enum_var.get()
         return None
-    
+
     def update_float(self):
         val = self.float_var.get()
-        self.valuestorage["float_value"] = val
+        USERSTORAGE["float_value"] = val
         self.float_label.config(text=f"{val:.1f} GB")
         return None
-    
+
     def update_int(self):
         val = int(self.int_var.get())
-        self.valuestorage["int_value"] = val
+        USERSTORAGE["int_value"] = val
         self.int_label.config(text=f"{val}")
         return None
 
@@ -540,26 +538,28 @@ class Page3(PageBase):
     def next_button_greyedout(self) -> bool:
         return (self.loadbar_complete==False)
 
-    def __init__(self, parent, state, refresh_ui):
-        super().__init__(parent, state, refresh_ui)
+    def __init__(self, parent, refresh_ui):
+        super().__init__(parent, refresh_ui)
         layout = self.layout
         # Initialize loading state
         self.loadbar_complete = False
         self.loadbar_progress = 0
         self.loadbar_loading = False
+
         # Initialize state if needed
-        if ("loadbar_progress" not in self.valuestorage):
-            self.valuestorage.update({
+        if ("loadbar_progress" not in USERSTORAGE):
+            USERSTORAGE.update({
                 "loadbar_progress": 0,
                 "loadbar_complete": False,
-            })
+                })
+
         # Title and description
         tk.Label(layout, text="This page demonstrates a fake loading process with a progress bar.\nClick the button below to start the loading simulation.").pack(anchor="w", pady=(0, 20))
         # Progress bar and button container
         progress_frame = tk.Frame(layout)
         progress_frame.pack(fill="x", pady=(20, 0))
         # Progress bar (left side)
-        self.progress_var = tk.DoubleVar(value=self.valuestorage["loadbar_progress"])
+        self.progress_var = tk.DoubleVar(value=USERSTORAGE["loadbar_progress"])
         self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, maximum=100, mode='determinate')
         self.progress_bar.pack(side="left", fill="x", expand=True, pady=(0, 1))
         # Start button (right side)
@@ -588,7 +588,7 @@ class Page3(PageBase):
 
         self.loadbar_progress += 1
         self.progress_var.set(self.loadbar_progress)
-        self.valuestorage["loadbar_progress"] = self.loadbar_progress
+        USERSTORAGE["loadbar_progress"] = self.loadbar_progress
 
         # Update status messages based on progress
         match self.loadbar_progress:
@@ -597,7 +597,7 @@ class Page3(PageBase):
                 self.loadbar_complete = True
                 self.loadbar_loading = False
                 self.start_button.config(state="normal", text="Done")
-                self.valuestorage["loadbar_complete"] = True
+                USERSTORAGE["loadbar_complete"] = True
                 self.refresh_ui()
                 return
             case 70:
@@ -647,16 +647,22 @@ class Page4(PageBase):
                 self.wizard.destroy()
         return None
 
-    def __init__(self, parent, state, refresh_ui):
-        super().__init__(parent, state, refresh_ui)
+    def __init__(self, parent, refresh_ui):
+        super().__init__(parent, refresh_ui)
         layout = self.layout
+
+        # Initialize state if needed
+        if ("install_dir" not in USERSTORAGE):
+            USERSTORAGE.update({
+                "install_dir": "",
+                })
 
         # Field + validation color
         path_row = tk.Frame(layout)
         path_row.pack(fill="x", pady=(6, 4))
 
         ttk.Label(path_row, text="Install directory:").pack(side="left", padx=(0, 8))
-        self.path_var = tk.StringVar(value=self.valuestorage["install_dir"],)
+        self.path_var = tk.StringVar(value=USERSTORAGE["install_dir"],)
         self.path_var_stripped = self.path_var.get().strip()
         self.path_var_valid = False
 
@@ -684,7 +690,7 @@ class Page4(PageBase):
     def sync_and_validate(self):
         self.path_var_stripped = self.path_var.get().strip()
         self.path_var_valid = os.path.isdir(self.path_var_stripped)
-        self.valuestorage["install_dir"] = self.path_var_stripped
+        USERSTORAGE["install_dir"] = self.path_var_stripped
         self.entry.config(bg=("#141414" if self.path_var_valid else "#600000"))
         self.refresh_ui()
         return None
