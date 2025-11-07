@@ -42,6 +42,8 @@ class MyInstallPage(PageBase):
 if __name__ == "__main__":
     app = Wizard()
     app.mainloop()
+
+#NOTE: store anything in the /assets folder, it will be packed in the .exe and unpacked in a temp directory, then use get_assets_dir() to find back the files you need.
 ```
 
 ### 3\. Build Executable
