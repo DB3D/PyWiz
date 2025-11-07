@@ -151,11 +151,11 @@ class Wizard(tk.Tk):
 
         # Build pages
         self.pages = []
-        self.current = 0
-        self.pages.append(Page1(self.container, self.state, self.update_page_state,))
-        self.pages.append(Page2(self.container, self.state, self.update_page_state,))
-        self.pages.append(Page3(self.container, self.state, self.update_page_state,))
-        self.pages.append(Page4(self.container, self.state, self.update_page_state,))
+        self.page_active_idx = 0
+        self.pages.append(Page1(self.container, self.state, self.refresh_page,))
+        self.pages.append(Page2(self.container, self.state, self.refresh_page,))
+        self.pages.append(Page3(self.container, self.state, self.refresh_page,))
+        self.pages.append(Page4(self.container, self.state, self.refresh_page,))
 
         for p in self.pages:
             p.wizard = self  # Set wizard reference for callbacks
@@ -170,10 +170,10 @@ class Wizard(tk.Tk):
     # Navigation helpers
     def update_page(self, idx: int):
         # Safety check - don't update if pages aren't initialized yet
-        if not self.pages or idx >= len(self.pages):
+        if ((not self.pages) or (idx >= len(self.pages))):
             return None
         
-        self.current = idx
+        self.page_active_idx = idx
         current_page = self.pages[idx]
         
         for i, p in enumerate(self.pages):
@@ -204,19 +204,19 @@ class Wizard(tk.Tk):
         
         return None
 
-    def update_page_state(self):
+    def refresh_page(self):
         """Called by pages when their state changes - just refresh current page"""
-        self.update_page(self.current)
+        self.update_page(self.page_active_idx)
         return None
 
     def prev_page(self):
-        if (self.current > 0):
-            self.update_page(self.current - 1)
+        if (self.page_active_idx > 0):
+            self.update_page(self.page_active_idx - 1)
         return None
 
     def next_page(self):
-        if (self.current < len(self.pages) - 1):
-            self.update_page(self.current + 1)
+        if (self.page_active_idx < len(self.pages) - 1):
+            self.update_page(self.page_active_idx + 1)
         return None
 
     def premature_window_close_callback(self):
@@ -247,10 +247,10 @@ class PageBase(tk.Frame):
     #     """*CHILDREN DEFINED*: Override to make Next button semi-transparent, like enabled==False but user can click it"""
     #     return False  # Return True to make button transparent when disabled
 
-    def __init__(self, parent, state, on_change):
-        super().__init__(parent)  # Let Sun Valley theme handle background
+    def __init__(self, parent, state, refresh_ui):
+        super().__init__(parent) # Let Sun Valley theme handle background
         self.state = state
-        self.on_change = on_change
+        self.refresh_ui = refresh_ui
         self.wizard = None  # Will be set by Wizard class
 
         # Load and display header image
@@ -308,8 +308,8 @@ class Page1(PageBase):
     def next_button_greyedout(self) -> bool:
         return self.state["license1_accepted"]==False  # Make button semi-transparent when license not accepted, user can click it, will show warning
 
-    def __init__(self, parent, state, on_change):
-        super().__init__(parent, state, on_change)
+    def __init__(self, parent, state, refresh_ui):
+        super().__init__(parent, state, refresh_ui)
 
         # Scrollable long license text
         wrapper = tk.Frame(self.body, height=200)
@@ -337,7 +337,7 @@ class Page1(PageBase):
 
         def on_toggle():
             self.state["license1_accepted"] = self.accept_var.get()
-            self.on_change()
+            self.refresh_ui()
             return None
 
         self.accept_check = ttk.Checkbutton(self.body, text="I accept the license agreement",
@@ -375,7 +375,7 @@ class Page1(PageBase):
             self.accept_check.config(state="disabled")
             self.accept_var.set(False)  # Reset acceptance if scrolled back up
             self.state["license1_accepted"] = False
-        self.on_change()
+        self.refresh_ui()
         return None
 
 # ooooooooo.                                    .oooo.   
@@ -405,8 +405,8 @@ class Page2(PageBase):
         self.wizard.next_page()
         return None
 
-    def __init__(self, parent, state, on_change):
-        super().__init__(parent, state, on_change)
+    def __init__(self, parent, state, refresh_ui):
+        super().__init__(parent, state, refresh_ui)
 
         # Initialize state if needed
         if "bool_option1" not in self.state:
@@ -534,8 +534,8 @@ class Page3(PageBase):
     def next_button_greyedout(self) -> bool:
         return (self.loadbar_complete==False)
 
-    def __init__(self, parent, state, on_change):
-        super().__init__(parent, state, on_change)
+    def __init__(self, parent, state, refresh_ui):
+        super().__init__(parent, state, refresh_ui)
 
         # Initialize loading state
         self.loadbar_complete = False
@@ -582,7 +582,7 @@ class Page3(PageBase):
         self.progress_var.set(0)
         self.status_label.config(text="Initializing loading...", fg="#ffffff")
         self.loadbar_complete = False
-        self.on_change()
+        self.refresh_ui()
         self.update_progress()
         return None
 
@@ -602,7 +602,7 @@ class Page3(PageBase):
                 self.loadbar_loading = False
                 self.start_button.config(state="normal", text="Loading Complete")
                 self.state["loadbar_complete"] = True
-                self.on_change()
+                self.refresh_ui()
                 return
             case 70:
                 self.status_label.config(text="Finalizing installation...", fg="#ffffff")
@@ -614,7 +614,7 @@ class Page3(PageBase):
                 self.status_label.config(text="Loading core files...", fg="#ffffff")
 
         # Schedule next update
-        self.after(100, self.update_progress)
+        self.after(40, self.update_progress)
         return None
 
 # ooooooooo.                                        .o   
@@ -651,8 +651,8 @@ class Page4(PageBase):
                 self.wizard.destroy()
         return None
 
-    def __init__(self, parent, state, on_change):
-        super().__init__(parent, state, on_change)
+    def __init__(self, parent, state, refresh_ui):
+        super().__init__(parent, state, refresh_ui)
 
         # Field + validation color
         path_row = tk.Frame(self.body)
@@ -684,14 +684,14 @@ class Page4(PageBase):
         ttk.Button(self.body, text="Append F:/This/Path", command=append_magic, takefocus=0).pack(anchor="w", pady=8)
         tk.Label(self.body, text="Field turns red if the path does not exist.").pack(anchor="w", pady=(4, 0))
 
-        on_change()
+        self.refresh_ui()
 
     def sync_and_validate(self):
         self.path_var_stripped = self.path_var.get().strip()
         self.path_var_valid = os.path.isdir(self.path_var_stripped)
         self.state["install_dir"] = self.path_var_stripped
-        self.entry.config(fg=("white" if self.path_var_valid else "red"))
-        self.on_change()
+        self.entry.config(bg=("#141414" if self.path_var_valid else "#600000"))
+        self.refresh_ui()
         return None
 
 if __name__ == "__main__":
