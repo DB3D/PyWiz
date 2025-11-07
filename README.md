@@ -1,8 +1,7 @@
-# PyWiz 🧙‍♂️
-
-A Python installer framework for creating beautiful desktop application installers with a wizard-style interface.
 
 ![PyWiz](templates/pywiz.png)
+
+A simple Python installer template for creating beautiful desktop application installers with wizard-style UI's.
 
 ---
 
