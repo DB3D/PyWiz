@@ -13,7 +13,7 @@ A simple Python installer template for creating beautiful desktop application in
 *   **Easy Configuration** - Simple class-based page system, just define & add pages in main.py following the examples
 *   **Build Scripts** - Build the executable with the `build_nuikta.py` or `build_pyinstaller.py`. (NOTE: only tested on WinOS so far)
 *   **One-File** - Will produce a single executable with compressed archives
-*   **Cross-Platform** - Nuitka and PyInstaller supports Windows, macOS, Linux support. (NOTE: only tested on WinOS so far)
+*   **Cross-Platform** - Nuitka and PyInstaller supports creating apps for Windows, macOS, Linux support. (NOTE: You'll need to propose one app per OS. Only tested on WindowsOS so far)
 
 ---
 
