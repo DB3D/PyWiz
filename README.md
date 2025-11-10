@@ -11,7 +11,7 @@ A simple Python installer template for creating beautiful desktop application in
 *   **Form Controls** - Basic UI with tkinter
 *   **Easy Template** - Add custom icons, splash and headers from your branding
 *   **Easy Configuration** - Simple class-based page system, just define & add pages in main.py following the examples
-*   **Build Scripts** - Build the executable with the `build_nuikta.py` or `build_pyinstaller.py`. (NOTE: only tested on WinOS so far)
+*   **Build Scripts** - Build the executable with the `build_nuikta.py` or `build_pyinstaller.py` (best). (NOTE: only tested on WinOS so far)
 *   **One-File** - Will produce a single executable with compressed archives
 *   **Cross-Platform** - Nuitka and PyInstaller supports creating apps for Windows, macOS, Linux support. (NOTE: You'll need to propose one app per OS. Only tested on WindowsOS so far)
 
@@ -54,15 +54,18 @@ if __name__ == "__main__":
 #NOTE: store anything in the `/assets` folder, it will be packed in the .exe and unpacked in a temp directory during launch,  in main, use get_assets_dir() to find back the files you need at runtime.
 ```
 
-### 3\. Build Executable
+### 3\. Branding
 
-Build your own app.ico, header\_pageX.jpg, splash.jpg using the photoshop templates.  
+Define your own app.ico, header\_pageX.jpg, splash.jpg using the photoshop templates.  
 Please keep the PyWiz logo on the splash lower corner.
 
 ### 4\. Build Executable
 
+Compile the python script into a compiled application with the help of Pyinstaller (recommended) or Nuitka.
+We provide an utility script to help you compile. Make sure you installed Nuitka or pyinstaller on your python.
+
 ```
-# Using PyInstaller (recommended for distribution)
+# Using PyInstaller (much recommended for distribution)
 python build_pyinstaller.py
 
 # Using Nuitka (faster but heavily AV-flagged..)
